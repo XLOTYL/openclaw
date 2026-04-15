@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openclaw.local/schemas/birtha-bridge/session-mirror.v1.json",
+  "title": "Birtha bridge — shell-local session mirror (OpenClaw plugin)",
+  "description": "Persisted only by the OpenClaw plugin; Birtha remains authoritative. Never synthesize fields locally.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mirror_version", "openclaw_session_key", "birtha_state", "updated_at"],
+  "properties": {
+    "mirror_version": { "type": "integer", "const": 1 },
+    "openclaw_session_key": { "type": "string", "minLength": 1 },
+    "birtha_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "engineering_session_id": { "type": "string" },
+        "task_id": { "type": "string" },
+        "run_id": { "type": "string" },
+        "dossier_id": { "type": "string" },
+        "selected_executor": { "type": "string" },
+        "problem_brief_ref": { "type": "string" },
+        "engineering_state_ref": { "type": "string" },
+        "active_task_packet_ref": { "type": "string" },
+        "verification_report_ref": { "type": "string" },
+        "escalation_packet_ref": { "type": "string" },
+        "knowledge_pool_assessment_ref": { "type": "string" }
+      }
+    },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}

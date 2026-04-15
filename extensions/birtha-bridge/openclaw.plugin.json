@@ -1,0 +1,17 @@
+{
+  "id": "birtha-bridge",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "birthaApiBaseUrl": {
+        "type": "string",
+        "description": "Birtha api-service base URL (example: http://localhost:8080)."
+      },
+      "birthaApiBearerToken": {
+        "type": "string",
+        "description": "Optional Bearer token sent as Authorization: Bearer … when present."
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@openclaw/birtha-bridge-plugin",
+  "version": "2026.4.12",
+  "private": true,
+  "description": "OpenClaw plugin: Birtha control plane bridge (POST /api/ai/query + openclaw-bridge v1)",
+  "type": "module",
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@openclaw/plugin-sdk": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
