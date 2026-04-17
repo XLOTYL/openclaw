@@ -5,9 +5,12 @@
   "description": "Birtha / Xlotyl HTTPS bridge helpers (birtha_tool_query tool-model lane client)",
   "type": "module",
   "devDependencies": {
-    "@openclaw/plugin-sdk": "workspace:*"
+    "@openclaw/plugin-sdk": "workspace:*",
+    "@sinclair/typebox": "^0.34.0"
   },
   "openclaw": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./index.ts"
+    ]
   }
 }

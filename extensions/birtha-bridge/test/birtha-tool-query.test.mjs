@@ -6,7 +6,7 @@ import http from "node:http";
 import { test } from "node:test";
 import { birthaToolQuery } from "../src/birtha-tool-query.mjs";
 
-test("birthaToolQuery posts JSON and parses result", async () => {
+void test("birthaToolQuery posts JSON and parses result", async () => {
   const server = http.createServer((req, res) => {
     if (req.method !== "POST" || req.url !== "/api/ai/tool-query") {
       res.writeHead(404);
@@ -56,6 +56,8 @@ test("birthaToolQuery posts JSON and parses result", async () => {
     assert.equal(out.result_type, "tool_result_structured");
     assert.equal(out.provenance.lane, "tool_model");
   } finally {
-    server.close();
+    await new Promise((resolve, reject) => {
+      server.close((err) => (err ? reject(err) : resolve()));
+    });
   }
 });

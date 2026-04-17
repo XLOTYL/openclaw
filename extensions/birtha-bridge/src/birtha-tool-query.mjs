@@ -21,6 +21,18 @@ export async function birthaToolQuery(args) {
     timeout_budget_ms: args.timeoutBudgetMs,
     openclaw_bridge: args.openclawBridge,
   };
+  if (args.needsCitations === true) {
+    body.needs_citations = true;
+  }
+  if (args.needsStructuredOutput === false) {
+    body.needs_structured_output = false;
+  }
+  if (args.sessionRef !== undefined) {
+    body.session_ref = args.sessionRef;
+  }
+  if (args.allowedCapabilities !== undefined && args.allowedCapabilities.length > 0) {
+    body.allowed_capabilities = args.allowedCapabilities;
+  }
   const res = await fetch(url, {
     method: "POST",
     headers,

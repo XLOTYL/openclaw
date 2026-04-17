@@ -17,6 +17,12 @@ export type BirthaToolQueryArgs = {
   openclawBridge: Record<string, unknown>;
   maxTokens?: number;
   timeoutBudgetMs?: number;
+  /** When true, response must include citation-shaped fields or the server may escalate. */
+  needsCitations?: boolean;
+  /** Prefer structured JSON payload in the tool lane (default true). */
+  needsStructuredOutput?: boolean;
+  sessionRef?: string;
+  allowedCapabilities?: string[];
 };
 
 export type ToolQueryResult = Record<string, unknown>;
@@ -33,7 +39,7 @@ export async function birthaToolQuery(args: BirthaToolQueryArgs): Promise<ToolQu
   if (args.bearerToken) {
     headers.Authorization = `Bearer ${args.bearerToken}`;
   }
-  const body = {
+  const body: Record<string, unknown> = {
     tool_name: args.toolName,
     tool_version: args.toolVersion,
     tool_goal: args.toolGoal,
@@ -43,6 +49,18 @@ export async function birthaToolQuery(args: BirthaToolQueryArgs): Promise<ToolQu
     timeout_budget_ms: args.timeoutBudgetMs,
     openclaw_bridge: args.openclawBridge,
   };
+  if (args.needsCitations === true) {
+    body.needs_citations = true;
+  }
+  if (args.needsStructuredOutput === false) {
+    body.needs_structured_output = false;
+  }
+  if (args.sessionRef !== undefined) {
+    body.session_ref = args.sessionRef;
+  }
+  if (args.allowedCapabilities !== undefined && args.allowedCapabilities.length > 0) {
+    body.allowed_capabilities = args.allowedCapabilities;
+  }
   const res = await fetch(url, {
     method: "POST",
     headers,
