@@ -22087,6 +22087,105 @@ export const GENERATED_BASE_CONFIG_SCHEMA: BaseConfigSchemaResponse = {
         description:
           "Global MCP server definitions managed by OpenClaw. Embedded Pi and other runtime adapters can consume these servers without storing them inside Pi-owned project settings.",
       },
+      xlotyl: {
+        type: "object",
+        properties: {
+          enabled: {
+            type: "boolean",
+            description:
+              "When true, allows gateway routes under /xlotyl/v1/* when agentPlatformBaseUrl is set. Keep off until agent-platform is reachable from the gateway host.",
+          },
+          agentPlatformBaseUrl: {
+            type: "string",
+            format: "uri",
+            description:
+              "Base URL for xlotyl agent-platform (example: http://127.0.0.1:8087). Used server-side only for /xlotyl/v1/surface aggregation.",
+          },
+          agentPlatformToken: {
+            anyOf: [
+              {
+                type: "string",
+              },
+              {
+                oneOf: [
+                  {
+                    type: "object",
+                    properties: {
+                      source: {
+                        type: "string",
+                        const: "env",
+                      },
+                      provider: {
+                        type: "string",
+                        pattern: "^[a-z][a-z0-9_-]{0,63}$",
+                      },
+                      id: {
+                        type: "string",
+                        pattern: "^[A-Z][A-Z0-9_]{0,127}$",
+                      },
+                    },
+                    required: ["source", "provider", "id"],
+                    additionalProperties: false,
+                  },
+                  {
+                    type: "object",
+                    properties: {
+                      source: {
+                        type: "string",
+                        const: "file",
+                      },
+                      provider: {
+                        type: "string",
+                        pattern: "^[a-z][a-z0-9_-]{0,63}$",
+                      },
+                      id: {
+                        type: "string",
+                      },
+                    },
+                    required: ["source", "provider", "id"],
+                    additionalProperties: false,
+                  },
+                  {
+                    type: "object",
+                    properties: {
+                      source: {
+                        type: "string",
+                        const: "exec",
+                      },
+                      provider: {
+                        type: "string",
+                        pattern: "^[a-z][a-z0-9_-]{0,63}$",
+                      },
+                      id: {
+                        type: "string",
+                      },
+                    },
+                    required: ["source", "provider", "id"],
+                    additionalProperties: false,
+                  },
+                ],
+              },
+            ],
+            description:
+              "Optional bearer token for server-side requests to agent-platform. Never expose to browser clients; prefer gateway-only auth for UIs.",
+          },
+          requestTimeoutMs: {
+            type: "integer",
+            exclusiveMinimum: 0,
+            maximum: 9007199254740991,
+            description:
+              "Timeout in milliseconds for gateway-to-agent-platform HTTP calls used by the xlotyl bridge.",
+          },
+          surfaceEnabled: {
+            type: "boolean",
+            description:
+              "When false, disables /xlotyl/v1/* routes even if enabled=true (emergency kill switch).",
+          },
+        },
+        additionalProperties: false,
+        description:
+          "Bridge to xlotyl agent-platform for normalized UI surface (modes/connectivity) and frontend module hints. Domain workflows stay on agent-platform HTTP; OpenClaw does not run LangGraph here.",
+      },
       skills: {
         type: "object",
         properties: {
@@ -26856,6 +26955,31 @@ export const GENERATED_BASE_CONFIG_SCHEMA: BaseConfigSchemaResponse = {
     "plugins.installs.*.marketplacePlugin": {
       label: "Plugin Marketplace Plugin",
       help: "Plugin entry name inside the source marketplace, used for later updates.",
+      tags: ["advanced"],
+    },
+    xlotyl: {
+      help: "Bridge to xlotyl agent-platform for normalized UI surface (modes/connectivity) and frontend module hints. Domain workflows stay on agent-platform HTTP; OpenClaw does not run LangGraph here.",
+      tags: ["advanced"],
+    },
+    "xlotyl.enabled": {
+      help: "When true, allows gateway routes under /xlotyl/v1/* when agentPlatformBaseUrl is set. Keep off until agent-platform is reachable from the gateway host.",
+      tags: ["advanced"],
+    },
+    "xlotyl.agentPlatformBaseUrl": {
+      help: "Base URL for xlotyl agent-platform (example: http://127.0.0.1:8087). Used server-side only for /xlotyl/v1/surface aggregation.",
+      tags: ["advanced"],
+    },
+    "xlotyl.agentPlatformToken": {
+      help: "Optional bearer token for server-side requests to agent-platform. Never expose to browser clients; prefer gateway-only auth for UIs.",
+      tags: ["security", "auth"],
+      sensitive: true,
+    },
+    "xlotyl.requestTimeoutMs": {
+      help: "Timeout in milliseconds for gateway-to-agent-platform HTTP calls used by the xlotyl bridge.",
+      tags: ["performance", "media"],
+    },
+    "xlotyl.surfaceEnabled": {
+      help: "When false, disables /xlotyl/v1/* routes even if enabled=true (emergency kill switch).",
       tags: ["advanced"],
     },
     "models.providers.*.headers.*": {

@@ -1243,6 +1243,18 @@ export const FIELD_HELP: Record<string, string> = {
   mcp: "Global MCP server definitions managed by OpenClaw. Embedded Pi and other runtime adapters can consume these servers without storing them inside Pi-owned project settings.",
   "mcp.servers":
     "Named MCP server definitions. OpenClaw stores them in its own config and runtime adapters decide which transports are supported at execution time.",
+  xlotyl:
+    "Bridge to xlotyl agent-platform for normalized UI surface (modes/connectivity) and frontend module hints. Domain workflows stay on agent-platform HTTP; OpenClaw does not run LangGraph here.",
+  "xlotyl.enabled":
+    "When true, allows gateway routes under /xlotyl/v1/* when agentPlatformBaseUrl is set. Keep off until agent-platform is reachable from the gateway host.",
+  "xlotyl.agentPlatformBaseUrl":
+    "Base URL for xlotyl agent-platform (example: http://127.0.0.1:8087). Used server-side only for /xlotyl/v1/surface aggregation.",
+  "xlotyl.agentPlatformToken":
+    "Optional bearer token for server-side requests to agent-platform. Never expose to browser clients; prefer gateway-only auth for UIs.",
+  "xlotyl.requestTimeoutMs":
+    "Timeout in milliseconds for gateway-to-agent-platform HTTP calls used by the xlotyl bridge.",
+  "xlotyl.surfaceEnabled":
+    "When false, disables /xlotyl/v1/* routes even if enabled=true (emergency kill switch).",
   session:
     "Global session routing, reset, delivery policy, and maintenance controls for conversation history behavior. Keep defaults unless you need stricter isolation, retention, or delivery constraints.",
   "session.scope":

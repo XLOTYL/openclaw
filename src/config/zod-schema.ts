@@ -230,6 +230,17 @@ const McpConfigSchema = z
   .strict()
   .optional();
 
+const XlotylIntegrationSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    agentPlatformBaseUrl: z.string().url().optional(),
+    agentPlatformToken: SecretInputSchema.optional().register(sensitive),
+    requestTimeoutMs: z.number().int().positive().optional(),
+    surfaceEnabled: z.boolean().optional(),
+  })
+  .strict()
+  .optional();
+
 export const OpenClawSchema = z
   .object({
     $schema: z.string().optional(),
@@ -898,6 +909,7 @@ export const OpenClawSchema = z
       .optional(),
     memory: MemorySchema,
     mcp: McpConfigSchema,
+    xlotyl: XlotylIntegrationSchema,
     skills: z
       .object({
         allowBundled: z.array(z.string()).optional(),

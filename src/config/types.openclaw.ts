@@ -28,6 +28,7 @@ import type { PluginsConfig } from "./types.plugins.js";
 import type { SecretsConfig } from "./types.secrets.js";
 import type { SkillsConfig } from "./types.skills.js";
 import type { ToolsConfig } from "./types.tools.js";
+import type { XlotylIntegrationConfig } from "./types.xlotyl.js";
 
 export type OpenClawConfig = {
   meta?: {
@@ -122,6 +123,8 @@ export type OpenClawConfig = {
   gateway?: GatewayConfig;
   memory?: MemoryConfig;
   mcp?: McpConfig;
+  /** Xlotyl agent-platform bridge (UI surface, module hints). Workflows remain API-first on agent-platform. */
+  xlotyl?: XlotylIntegrationConfig;
 };
 
 declare const openClawConfigStateBrand: unique symbol;

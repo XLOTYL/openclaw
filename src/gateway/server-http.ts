@@ -91,6 +91,7 @@ let sessionHistoryHttpModulePromise:
   | undefined;
 let sessionKillHttpModulePromise: Promise<typeof import("./session-kill-http.js")> | undefined;
 let toolsInvokeHttpModulePromise: Promise<typeof import("./tools-invoke-http.js")> | undefined;
+let xlotylBridgeHttpModulePromise: Promise<typeof import("./xlotyl-bridge-http.js")> | undefined;
 
 function getBundledChannelsModule() {
   bundledChannelsModulePromise ??= import("../channels/plugins/bundled.js");
@@ -140,6 +141,15 @@ function getSessionKillHttpModule() {
 function getToolsInvokeHttpModule() {
   toolsInvokeHttpModulePromise ??= import("./tools-invoke-http.js");
   return toolsInvokeHttpModulePromise;
+}
+
+function getXlotylBridgeHttpModule() {
+  xlotylBridgeHttpModulePromise ??= import("./xlotyl-bridge-http.js");
+  return xlotylBridgeHttpModulePromise;
+}
+
+function isXlotylBridgePath(pathname: string): boolean {
+  return pathname === "/xlotyl/v1/surface" || pathname === "/xlotyl/v1/modules/plan";
 }
 
 type HookDispatchers = {
@@ -931,6 +941,18 @@ export function createGatewayHttpServer(opts: {
           name: "tools-invoke",
           run: async () =>
             (await getToolsInvokeHttpModule()).handleToolsInvokeHttpRequest(req, res, {
+              auth: resolvedAuth,
+              trustedProxies,
+              allowRealIpFallback,
+              rateLimiter,
+            }),
+        });
+      }
+      if (isXlotylBridgePath(requestPath)) {
+        requestStages.push({
+          name: "xlotyl-bridge",
+          run: async () =>
+            (await getXlotylBridgeHttpModule()).handleXlotylBridgeHttpRequest(req, res, {
               auth: resolvedAuth,
               trustedProxies,
               allowRealIpFallback,

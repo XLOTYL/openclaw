@@ -670,6 +670,8 @@ export function collectGatewayHttpNoAuthFindings(
   const responsesEnabled = cfg.gateway?.http?.endpoints?.responses?.enabled === true;
   const enabledEndpoints = [
     "/tools/invoke",
+    "/xlotyl/v1/surface",
+    "/xlotyl/v1/modules/plan",
     chatCompletionsEnabled ? "/v1/chat/completions" : null,
     responsesEnabled ? "/v1/responses" : null,
   ].filter((entry): entry is string => Boolean(entry));
