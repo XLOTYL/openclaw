@@ -31,7 +31,7 @@ import type {
   QaLabServerStartParams,
 } from "./lab-server.types.js";
 import { resolveQaLiveTurnTimeoutMs } from "./live-timeout.js";
-import { startQaMockOpenAiServer } from "../../../mocks/qa-lab/mock-openai-server.js";
+import { startQaMockOpenAiServer } from "./qa-synthetic-openai-server.js";
 import {
   defaultQaModelForMode,
   isQaFastModeEnabled,

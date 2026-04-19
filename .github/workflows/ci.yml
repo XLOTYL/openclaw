@@ -17,6 +17,20 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  deployed-no-mocks-dir:
+    if: github.ref == 'refs/heads/deployed' || (github.event_name == 'pull_request' && github.base_ref == 'deployed')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert no tracked files under mocks/
+        run: |
+          set -euo pipefail
+          if [[ -n "$(git ls-files mocks)" ]]; then
+            echo "deployed must not track mocks/ directory" >&2
+            git ls-files mocks >&2
+            exit 1
+          fi
+
   # Preflight: establish routing truth and job matrices once, then let real
   # work fan out from a single source of truth.
   preflight:

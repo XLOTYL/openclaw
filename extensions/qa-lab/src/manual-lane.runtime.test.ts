@@ -14,7 +14,7 @@ vi.mock("./gateway-child.js", () => ({
   startQaGatewayChild,
 }));
 
-vi.mock("../../../mocks/qa-lab/mock-openai-server.js", () => ({
+vi.mock("./qa-synthetic-openai-server.js", () => ({
   startQaMockOpenAiServer,
 }));
 

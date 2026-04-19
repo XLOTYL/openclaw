@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { mockNormalizeMessageContent } from "../../../../mocks/whatsapp/baileys.js";
+import { mockNormalizeMessageContent } from "../baileys-test-shim.js";
 
 type MockMessageInput = Parameters<typeof mockNormalizeMessageContent>[0];
 

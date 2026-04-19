@@ -14,7 +14,7 @@ docsRefs:
   - docs/providers/openai.md
 codeRefs:
   - src/agents/tools/image-generate-tool.ts
-  - mocks/qa-lab/mock-openai-server.ts
+  - extensions/qa-lab/src/qa-synthetic-openai-server.ts
 execution:
   kind: flow
   summary: Verify image_generate appears when configured and returns a real saved media artifact.

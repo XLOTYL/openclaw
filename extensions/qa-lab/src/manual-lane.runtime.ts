@@ -4,7 +4,7 @@ import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { startQaGatewayChild } from "./gateway-child.js";
 import { startQaLabServer } from "./lab-server.js";
 import { resolveQaLiveTurnTimeoutMs } from "./live-timeout.js";
-import { startQaMockOpenAiServer } from "../../../mocks/qa-lab/mock-openai-server.js";
+import { startQaMockOpenAiServer } from "./qa-synthetic-openai-server.js";
 import type { QaThinkingLevel } from "./qa-gateway-config.js";
 import { createQaTransportAdapter, type QaTransportId } from "./qa-transport-registry.js";
 

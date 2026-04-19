@@ -33,7 +33,7 @@ docsRefs:
 codeRefs:
   - extensions/active-memory/index.ts
   - extensions/qa-lab/src/suite.ts
-  - mocks/qa-lab/mock-openai-server.ts
+  - extensions/qa-lab/src/qa-synthetic-openai-server.ts
 execution:
   kind: flow
   summary: Verify Active Memory stays off when session-toggled off, runs memory search/get when enabled, and helps a live model answer with the recalled preference in the first visible reply.

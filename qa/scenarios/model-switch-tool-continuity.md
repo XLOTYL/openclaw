@@ -14,7 +14,7 @@ docsRefs:
   - docs/concepts/model-failover.md
 codeRefs:
   - extensions/qa-lab/src/suite.ts
-  - mocks/qa-lab/mock-openai-server.ts
+  - extensions/qa-lab/src/qa-synthetic-openai-server.ts
 execution:
   kind: flow
   summary: Verify switching models preserves session context and tool use instead of dropping into plain-text only behavior.

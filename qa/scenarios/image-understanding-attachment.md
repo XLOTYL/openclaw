@@ -15,7 +15,7 @@ docsRefs:
 codeRefs:
   - src/gateway/server-methods/agent.ts
   - extensions/qa-lab/src/suite.ts
-  - mocks/qa-lab/mock-openai-server.ts
+  - extensions/qa-lab/src/qa-synthetic-openai-server.ts
 execution:
   kind: flow
   summary: Verify an attached image reaches the agent model and the agent can describe what it sees.
