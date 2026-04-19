@@ -14,7 +14,7 @@ docsRefs:
   - docs/channels/qa-channel.md
 codeRefs:
   - extensions/qa-lab/src/suite.ts
-  - extensions/qa-lab/src/mock-openai-server.ts
+  - mocks/qa-lab/mock-openai-server.ts
   - src/agents/pi-embedded-runner/run/incomplete-turn.ts
 execution:
   kind: flow

@@ -15,7 +15,7 @@ docsRefs:
   - docs/help/gpt54-codex-agentic-parity.md
 codeRefs:
   - extensions/qa-lab/src/suite.ts
-  - extensions/qa-lab/src/mock-openai-server.ts
+  - mocks/qa-lab/mock-openai-server.ts
   - src/agents/pi-embedded-subscribe.ts
   - src/agents/pi-embedded-subscribe.handlers.lifecycle.ts
 execution:

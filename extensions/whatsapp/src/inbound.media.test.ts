@@ -8,7 +8,7 @@ import {
   mockGetContentType,
   mockIsJidGroup,
   mockNormalizeMessageContent,
-} from "../../../test/mocks/baileys.js";
+} from "../../../mocks/whatsapp/baileys.js";
 
 type MockMessageInput = Parameters<typeof mockNormalizeMessageContent>[0];
 

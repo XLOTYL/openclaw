@@ -4,8 +4,8 @@ import path from "node:path";
 import { normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/text-runtime";
 import { vi } from "vitest";
 import { formatEnvelopeTimestamp } from "../../../test/helpers/envelope-timestamp.js";
-import type { MockBaileysSocket } from "../../../test/mocks/baileys.js";
-import { createMockBaileys } from "../../../test/mocks/baileys.js";
+import type { MockBaileysSocket } from "../../../mocks/whatsapp/baileys.js";
+import { createMockBaileys } from "../../../mocks/whatsapp/baileys.js";
 
 // Use globalThis to store the mock config so it survives vi.mock hoisting
 const CONFIG_KEY = Symbol.for("openclaw:testConfigMock");

@@ -13,7 +13,7 @@ import { runQaDockerUp } from "./docker-up.runtime.js";
 import type { QaCliBackendAuthMode } from "./gateway-child.js";
 import { startQaLabServer } from "./lab-server.js";
 import { runQaManualLane } from "./manual-lane.runtime.js";
-import { startQaMockOpenAiServer } from "./mock-openai-server.js";
+import { startQaMockOpenAiServer } from "../../../mocks/qa-lab/mock-openai-server.js";
 import { runQaMultipass } from "./multipass.runtime.js";
 import { normalizeQaThinkingLevel, type QaThinkingLevel } from "./qa-gateway-config.js";
 import { normalizeQaTransportId } from "./qa-transport-registry.js";

@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { setTimeout as sleep } from "node:timers/promises";
-import { closeQaHttpServer } from "./bus-server.js";
+import { closeQaHttpServer } from "../../extensions/qa-lab/src/bus-server.js";
 
 type ResponsesInputItem = Record<string, unknown>;
 
