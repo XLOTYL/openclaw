@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+      - model-free-dev
+      - deployed
     paths:
       - ui/src/i18n/locales/en.ts
       - ui/src/i18n/locales/*.ts

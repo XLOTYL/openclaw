@@ -3,7 +3,7 @@ name: Workflow Sanity
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, model-free-dev, deployed]
   workflow_dispatch:
 
 concurrency:

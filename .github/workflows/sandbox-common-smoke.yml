@@ -2,7 +2,7 @@ name: Sandbox Common Smoke
 
 on:
   push:
-    branches: [main]
+    branches: [main, model-free-dev, deployed]
     paths:
       - Dockerfile.sandbox
       - Dockerfile.sandbox-common

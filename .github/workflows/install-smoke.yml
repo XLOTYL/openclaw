@@ -2,7 +2,7 @@ name: Install Smoke
 
 on:
   push:
-    branches: [main]
+    branches: [main, model-free-dev, deployed]
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]
   workflow_dispatch:
