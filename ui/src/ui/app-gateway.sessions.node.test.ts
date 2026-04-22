@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 const loadSessionsMock = vi.fn();
+const loadDevicesMock = vi.fn();
+const loadExecApprovalsMock = vi.fn();
 
 vi.mock("./app-chat.ts", () => ({
   CHAT_SESSIONS_ACTIVE_MINUTES: 10,
@@ -28,7 +30,10 @@ vi.mock("./controllers/chat.ts", () => ({
   handleChatEvent: vi.fn(() => "idle"),
 }));
 vi.mock("./controllers/devices.ts", () => ({
-  loadDevices: vi.fn(),
+  loadDevices: loadDevicesMock,
+}));
+vi.mock("./controllers/exec-approvals.ts", () => ({
+  loadExecApprovals: loadExecApprovalsMock,
 }));
 vi.mock("./controllers/exec-approval.ts", () => ({
   addExecApproval: vi.fn(),
@@ -104,6 +109,14 @@ function createHost() {
     execApprovalQueue: [],
     execApprovalError: null,
     updateAvailable: null,
+    execApprovalsLoading: false,
+    execApprovalsSaving: false,
+    execApprovalsDirty: false,
+    execApprovalsSnapshot: null,
+    execApprovalsForm: null,
+    execApprovalsSelectedAgent: null,
+    execApprovalsTarget: "gateway",
+    execApprovalsTargetNodeId: null,
   } as unknown as Parameters<typeof handleGatewayEvent>[0];
 }
 
@@ -121,6 +134,69 @@ describe("handleGatewayEvent sessions.changed", () => {
 
     expect(loadSessionsMock).toHaveBeenCalledTimes(1);
     expect(loadSessionsMock).toHaveBeenCalledWith(host);
+  });
+});
+
+describe("handleGatewayEvent OpenClaw mutation broadcasts", () => {
+  it("reloads devices when the gateway pushes devices.changed", () => {
+    loadDevicesMock.mockReset();
+    const host = createHost();
+
+    handleGatewayEvent(host, {
+      type: "event",
+      event: "devices.changed",
+      payload: { deviceId: "device-1", kind: "token_revoked" },
+      seq: 1,
+    });
+
+    expect(loadDevicesMock).toHaveBeenCalledTimes(1);
+    expect(loadDevicesMock).toHaveBeenCalledWith(host, { quiet: true });
+  });
+
+  it("reloads the selected gateway exec approvals snapshot on exec.approvals.changed", () => {
+    loadExecApprovalsMock.mockReset();
+    const host = createHost();
+
+    handleGatewayEvent(host, {
+      type: "event",
+      event: "exec.approvals.changed",
+      payload: { target: "gateway", hash: "hash-after" },
+      seq: 1,
+    });
+
+    expect(loadExecApprovalsMock).toHaveBeenCalledTimes(1);
+    expect(loadExecApprovalsMock).toHaveBeenCalledWith(host, { kind: "gateway" });
+  });
+
+  it("reloads selected node exec approvals only when the changed node matches", () => {
+    loadExecApprovalsMock.mockReset();
+    const host = createHost() as Parameters<typeof handleGatewayEvent>[0] & {
+      execApprovalsTarget: "gateway" | "node";
+      execApprovalsTargetNodeId: string | null;
+    };
+    host.execApprovalsTarget = "node";
+    host.execApprovalsTargetNodeId = "node-1";
+
+    handleGatewayEvent(host, {
+      type: "event",
+      event: "exec.approvals.changed",
+      payload: { target: "node", nodeId: "node-2", hash: "hash-after" },
+      seq: 1,
+    });
+    expect(loadExecApprovalsMock).not.toHaveBeenCalled();
+
+    handleGatewayEvent(host, {
+      type: "event",
+      event: "exec.approvals.changed",
+      payload: { target: "node", nodeId: "node-1", hash: "hash-after" },
+      seq: 2,
+    });
+
+    expect(loadExecApprovalsMock).toHaveBeenCalledTimes(1);
+    expect(loadExecApprovalsMock).toHaveBeenCalledWith(host, {
+      kind: "node",
+      nodeId: "node-1",
+    });
   });
 });
 
