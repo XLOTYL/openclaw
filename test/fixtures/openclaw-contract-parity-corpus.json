@@ -1,0 +1,231 @@
+{
+  "cases": [
+    {
+      "method": "sessions.list",
+      "validatorMethod": "sessions.list",
+      "valid": [{ "agentId": "main", "limit": 25 }],
+      "invalid": [{ "agentId": "main", "unexpected": true }]
+    },
+    {
+      "method": "sessions.preview",
+      "validatorMethod": "sessions.preview",
+      "valid": [{ "keys": ["agent:main:main"], "limit": 3, "maxChars": 120 }],
+      "invalid": [{ "keys": [], "limit": 1 }]
+    },
+    {
+      "method": "sessions.get",
+      "validatorMethod": "sessions.get",
+      "valid": [{ "key": "agent:main:main" }, { "sessionKey": "agent:main:main", "limit": 20 }],
+      "invalid": [{}, { "key": "agent:main:main", "unexpected": true }]
+    },
+    {
+      "method": "sessions.resolve",
+      "validatorMethod": "sessions.resolve",
+      "valid": [{ "label": "support" }],
+      "invalid": [{ "label": "support", "unexpected": true }]
+    },
+    {
+      "method": "sessions.create",
+      "validatorMethod": "sessions.create",
+      "valid": [{ "agentId": "main", "label": "xlotyl-ops", "message": "Start operator session" }],
+      "invalid": [
+        { "agentId": "main", "label": "xlotyl-ops", "message": "Start", "unexpected": true }
+      ]
+    },
+    {
+      "method": "sessions.send",
+      "validatorMethod": "sessions.send",
+      "valid": [{ "key": "agent:main:main", "message": "continue" }],
+      "invalid": [{ "key": "agent:main:main", "text": "continue" }]
+    },
+    {
+      "method": "sessions.steer",
+      "validatorMethod": "sessions.send",
+      "valid": [{ "key": "agent:main:main", "message": "steer to verification" }],
+      "invalid": [{ "key": "agent:main:main", "text": "steer to verification" }]
+    },
+    {
+      "method": "sessions.abort",
+      "validatorMethod": "sessions.abort",
+      "valid": [{ "key": "agent:main:main" }],
+      "invalid": [{ "key": "agent:main:main", "unexpected": true }]
+    },
+    {
+      "method": "sessions.patch",
+      "validatorMethod": "sessions.patch",
+      "valid": [{ "key": "agent:main:main", "label": "Renamed session" }],
+      "invalid": [{ "key": "agent:main:main", "label": "Renamed session", "unexpected": true }]
+    },
+    {
+      "method": "sessions.reset",
+      "validatorMethod": "sessions.reset",
+      "valid": [{ "key": "agent:main:main", "reason": "reset" }],
+      "invalid": [{ "key": "agent:main:main", "reason": "resume" }]
+    },
+    {
+      "method": "sessions.delete",
+      "validatorMethod": "sessions.delete",
+      "valid": [{ "key": "agent:main:main" }],
+      "invalid": [{ "key": "agent:main:main", "deleteFiles": true }]
+    },
+    {
+      "method": "sessions.compact",
+      "validatorMethod": "sessions.compact",
+      "valid": [{ "key": "agent:main:main", "maxLines": 200 }],
+      "invalid": [{ "key": "agent:main:main", "mode": "manual" }]
+    },
+    {
+      "method": "sessions.usage",
+      "validatorMethod": "sessions.usage",
+      "valid": [{ "key": "agent:main:main", "limit": 20 }],
+      "invalid": [{ "key": "agent:main:main", "agentId": "main" }]
+    },
+    {
+      "method": "sessions.usage.timeseries",
+      "validatorMethod": "sessions.usage.timeseries",
+      "valid": [{ "key": "agent:main:main" }],
+      "invalid": [{ "key": "agent:main:main", "limit": 20 }]
+    },
+    {
+      "method": "sessions.usage.logs",
+      "validatorMethod": "sessions.usage.logs",
+      "valid": [{ "key": "agent:main:main", "limit": 20 }],
+      "invalid": [{ "key": "agent:main:main", "unexpected": true }]
+    },
+    {
+      "method": "sessions.compaction.list",
+      "validatorMethod": "sessions.compaction.list",
+      "valid": [{ "key": "agent:main:main" }],
+      "invalid": [{ "key": "agent:main:main", "unexpected": true }]
+    },
+    {
+      "method": "sessions.compaction.get",
+      "validatorMethod": "sessions.compaction.get",
+      "valid": [{ "key": "agent:main:main", "checkpointId": "cmp-1" }],
+      "invalid": [{ "key": "agent:main:main", "revisionId": "cmp-1" }]
+    },
+    {
+      "method": "sessions.compaction.branch",
+      "validatorMethod": "sessions.compaction.branch",
+      "valid": [{ "key": "agent:main:main", "checkpointId": "cmp-1" }],
+      "invalid": [{ "key": "agent:main:main", "checkpointId": "cmp-1", "newKey": "branch" }]
+    },
+    {
+      "method": "sessions.compaction.restore",
+      "validatorMethod": "sessions.compaction.restore",
+      "valid": [{ "key": "agent:main:main", "checkpointId": "cmp-1" }],
+      "invalid": [{ "key": "agent:main:main", "revisionId": "cmp-1" }]
+    },
+    {
+      "method": "agents.list",
+      "validatorMethod": "agents.list",
+      "valid": [{}],
+      "invalid": [{ "unexpected": true }]
+    },
+    {
+      "method": "agents.create",
+      "validatorMethod": "agents.create",
+      "valid": [
+        {
+          "name": "xlotyl-reviewer",
+          "workspace": "/workspace/reviews",
+          "model": "gpt-5.5",
+          "emoji": "review"
+        }
+      ],
+      "invalid": [{ "agentId": "xlotyl-reviewer", "description": "stale" }]
+    },
+    {
+      "method": "agents.update",
+      "validatorMethod": "agents.update",
+      "valid": [
+        {
+          "agentId": "xlotyl-reviewer",
+          "name": "xlotyl-reviewer-v2",
+          "workspace": "/workspace/reviews"
+        }
+      ],
+      "invalid": [{ "agentId": "xlotyl-reviewer", "description": "stale" }]
+    },
+    {
+      "method": "agents.delete",
+      "validatorMethod": "agents.delete",
+      "valid": [{ "agentId": "xlotyl-reviewer" }],
+      "invalid": [{ "agentId": "xlotyl-reviewer", "unexpected": true }]
+    },
+    {
+      "method": "agents.files.list",
+      "validatorMethod": "agents.files.list",
+      "valid": [{ "agentId": "main" }],
+      "invalid": [{ "agentId": "main", "path": "AGENTS.md" }]
+    },
+    {
+      "method": "agents.files.get",
+      "validatorMethod": "agents.files.get",
+      "valid": [{ "agentId": "main", "name": "AGENTS.md" }],
+      "invalid": [{ "agentId": "main", "path": "AGENTS.md" }]
+    },
+    {
+      "method": "agents.files.set",
+      "validatorMethod": "agents.files.set",
+      "valid": [{ "agentId": "main", "name": "AGENTS.md", "content": "updated" }],
+      "invalid": [
+        { "agentId": "main", "name": "AGENTS.md", "content": "updated", "unexpected": true }
+      ]
+    },
+    {
+      "method": "skills.status",
+      "validatorMethod": "skills.status",
+      "valid": [{}],
+      "invalid": [{ "agentId": "main", "unexpected": true }]
+    },
+    {
+      "method": "skills.search",
+      "validatorMethod": "skills.search",
+      "valid": [{ "query": "xlotyl" }],
+      "invalid": [{ "query": "xlotyl", "limit": 101 }]
+    },
+    {
+      "method": "skills.detail",
+      "validatorMethod": "skills.detail",
+      "valid": [{ "slug": "xlotyl-core-dev-services:ce-code-review" }],
+      "invalid": [{ "slug": "", "unexpected": true }]
+    },
+    {
+      "method": "skills.bins",
+      "validatorMethod": "skills.bins",
+      "valid": [{}],
+      "invalid": [{ "unexpected": true }]
+    },
+    {
+      "method": "skills.install",
+      "validatorMethod": "skills.install",
+      "valid": [
+        { "source": "clawhub", "slug": "xlotyl-core-dev-services:ce-code-review" },
+        { "name": "ce-code-review", "installId": "install-1" }
+      ],
+      "invalid": [
+        {
+          "source": "clawhub",
+          "slug": "xlotyl-core-dev-services:ce-code-review",
+          "name": "ce-code-review"
+        }
+      ]
+    },
+    {
+      "method": "skills.update",
+      "validatorMethod": "skills.update",
+      "valid": [
+        { "skillKey": "xlotyl-core-dev-services:ce-code-review", "enabled": true },
+        { "source": "clawhub", "all": true }
+      ],
+      "invalid": [
+        {
+          "skillKey": "xlotyl-core-dev-services:ce-code-review",
+          "enabled": true,
+          "source": "clawhub"
+        }
+      ]
+    }
+  ]
+}

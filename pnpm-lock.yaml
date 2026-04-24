@@ -383,6 +383,10 @@ importers:
         version: link:../../packages/plugin-sdk
 
   extensions/birtha-bridge:
+    dependencies:
+      ajv:
+        specifier: ^8.18.0
+        version: 8.18.0
     devDependencies:
       '@openclaw/plugin-sdk':
         specifier: workspace:*

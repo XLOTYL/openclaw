@@ -1,6 +1,6 @@
 # Session mirror vs authority
 
-The **session mirror** (plugin-local JSON keyed by `session_key`) may hold **opaque string refs** copied from `result.referential_state` returned by Birtha.
+The **session mirror** (plugin-local JSON keyed by `session_key`) may hold **opaque string refs** copied from `result.referential_state` returned by Birtha. Mirror updates are serialized with a lock file, written through a same-directory temp-file rename, and treated as best-effort cache persistence.
 
 - **Authoritative** engineering artifacts, task packets, publish decisions, and referential truth live in **Xlotyl** (api-service, control plane, DevPlane).
 - **Tool-model lane** responses (`POST /api/ai/tool-query`) are **never authoritative**: provenance includes `authoritative=false` and `requires_validation=true`.

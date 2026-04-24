@@ -2,8 +2,11 @@
   "name": "@openclaw/birtha-bridge",
   "version": "2026.4.12",
   "private": true,
-  "description": "Birtha / Xlotyl HTTPS bridge helpers (birtha_tool_query tool-model lane client)",
+  "description": "Birtha / Xlotyl HTTPS bridge helpers (tool-model + governed clients + xlotyl surface)",
   "type": "module",
+  "dependencies": {
+    "ajv": "^8.18.0"
+  },
   "devDependencies": {
     "@openclaw/plugin-sdk": "workspace:*",
     "@sinclair/typebox": "^0.34.0"

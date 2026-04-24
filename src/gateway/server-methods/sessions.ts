@@ -50,6 +50,7 @@ import {
   validateSessionsCompactionRestoreParams,
   validateSessionsCreateParams,
   validateSessionsDeleteParams,
+  validateSessionsGetParams,
   validateSessionsListParams,
   validateSessionsMessagesSubscribeParams,
   validateSessionsMessagesUnsubscribeParams,
@@ -1442,6 +1443,9 @@ export const sessionsHandlers: GatewayRequestHandlers = {
     }
   },
   "sessions.get": ({ params, respond }) => {
+    if (!assertValidParams(params, validateSessionsGetParams, "sessions.get", respond)) {
+      return;
+    }
     const p = params;
     const key = requireSessionKey(p.key ?? p.sessionKey, respond);
     if (!key) {

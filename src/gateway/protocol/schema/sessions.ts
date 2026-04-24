@@ -68,6 +68,18 @@ export const SessionsPreviewParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const SessionsGetParamsSchema = Type.Object(
+  {
+    key: Type.Optional(NonEmptyString),
+    sessionKey: Type.Optional(NonEmptyString),
+    limit: Type.Optional(Type.Integer({ minimum: 1 })),
+  },
+  {
+    additionalProperties: false,
+    anyOf: [{ required: ["key"] }, { required: ["sessionKey"] }],
+  },
+);
+
 export const SessionsResolveParamsSchema = Type.Object(
   {
     key: Type.Optional(NonEmptyString),
@@ -300,6 +312,21 @@ export const SessionsUsageParamsSchema = Type.Object(
     limit: Type.Optional(Type.Integer({ minimum: 1 })),
     /** Include context weight breakdown (systemPromptReport). */
     includeContextWeight: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
+
+export const SessionsUsageTimeseriesParamsSchema = Type.Object(
+  {
+    key: NonEmptyString,
+  },
+  { additionalProperties: false },
+);
+
+export const SessionsUsageLogsParamsSchema = Type.Object(
+  {
+    key: NonEmptyString,
+    limit: Type.Optional(Type.Integer({ minimum: 1 })),
   },
   { additionalProperties: false },
 );

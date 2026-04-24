@@ -38,7 +38,9 @@ import {
   ErrorCodes,
   errorShape,
   formatValidationErrors,
+  validateSessionsUsageLogsParams,
   validateSessionsUsageParams,
+  validateSessionsUsageTimeseriesParams,
 } from "../protocol/index.js";
 import {
   listAgentsForGateway,
@@ -826,6 +828,19 @@ export const usageHandlers: GatewayRequestHandlers = {
     respond(true, result, undefined);
   },
   "sessions.usage.timeseries": async ({ respond, params }) => {
+    if (!validateSessionsUsageTimeseriesParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid sessions.usage.timeseries params: ${formatValidationErrors(
+            validateSessionsUsageTimeseriesParams.errors,
+          )}`,
+        ),
+      );
+      return;
+    }
     const key = normalizeOptionalString(params?.key) ?? null;
     if (!key) {
       respond(
@@ -863,6 +878,19 @@ export const usageHandlers: GatewayRequestHandlers = {
     respond(true, timeseries, undefined);
   },
   "sessions.usage.logs": async ({ respond, params }) => {
+    if (!validateSessionsUsageLogsParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid sessions.usage.logs params: ${formatValidationErrors(
+            validateSessionsUsageLogsParams.errors,
+          )}`,
+        ),
+      );
+      return;
+    }
     const key = normalizeOptionalString(params?.key) ?? null;
     if (!key) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "key is required for logs"));

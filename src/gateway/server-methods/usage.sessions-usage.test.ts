@@ -259,6 +259,32 @@ describe("sessions.usage", () => {
     expect(vi.mocked(loadSessionLogs).mock.calls[0]?.[0]?.agentId).toBe("opus");
   });
 
+  it("rejects invalid extra params in timeseries and logs lookups before handler work", async () => {
+    const timeseriesRespond = await runSessionsUsageTimeseries({
+      key: "agent:opus:s-opus",
+      limit: 20,
+    });
+    expect(timeseriesRespond).toHaveBeenCalledWith(
+      false,
+      undefined,
+      expect.objectContaining({
+        message: expect.stringContaining("invalid sessions.usage.timeseries params"),
+      }),
+    );
+
+    const logsRespond = await runSessionsUsageLogs({
+      key: "agent:opus:s-opus",
+      unexpected: true,
+    });
+    expect(logsRespond).toHaveBeenCalledWith(
+      false,
+      undefined,
+      expect.objectContaining({
+        message: expect.stringContaining("invalid sessions.usage.logs params"),
+      }),
+    );
+  });
+
   it("rejects traversal-style keys in timeseries/log lookups", async () => {
     const timeseriesRespond = await runSessionsUsageTimeseries({
       key: "agent:opus:../../etc/passwd",

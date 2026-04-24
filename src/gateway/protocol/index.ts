@@ -229,14 +229,20 @@ import {
   SessionsPatchParamsSchema,
   type SessionsPreviewParams,
   SessionsPreviewParamsSchema,
+  type SessionsGetParams,
+  SessionsGetParamsSchema,
   type SessionsResetParams,
   SessionsResetParamsSchema,
   type SessionsResolveParams,
   SessionsResolveParamsSchema,
   type SessionsSendParams,
   SessionsSendParamsSchema,
+  type SessionsUsageLogsParams,
+  SessionsUsageLogsParamsSchema,
   type SessionsUsageParams,
   SessionsUsageParamsSchema,
+  type SessionsUsageTimeseriesParams,
+  SessionsUsageTimeseriesParamsSchema,
   type ShutdownEvent,
   ShutdownEventSchema,
   type SkillsBinsParams,
@@ -370,6 +376,7 @@ export const validateSessionsListParams = ajv.compile<SessionsListParams>(Sessio
 export const validateSessionsPreviewParams = ajv.compile<SessionsPreviewParams>(
   SessionsPreviewParamsSchema,
 );
+export const validateSessionsGetParams = ajv.compile<SessionsGetParams>(SessionsGetParamsSchema);
 export const validateSessionsResolveParams = ajv.compile<SessionsResolveParams>(
   SessionsResolveParamsSchema,
 );
@@ -408,6 +415,12 @@ export const validateSessionsCompactionRestoreParams = ajv.compile<SessionsCompa
 );
 export const validateSessionsUsageParams =
   ajv.compile<SessionsUsageParams>(SessionsUsageParamsSchema);
+export const validateSessionsUsageTimeseriesParams = ajv.compile<SessionsUsageTimeseriesParams>(
+  SessionsUsageTimeseriesParamsSchema,
+);
+export const validateSessionsUsageLogsParams = ajv.compile<SessionsUsageLogsParams>(
+  SessionsUsageLogsParamsSchema,
+);
 export const validateConfigGetParams = ajv.compile<ConfigGetParams>(ConfigGetParamsSchema);
 export const validateConfigSetParams = ajv.compile<ConfigSetParams>(ConfigSetParamsSchema);
 export const validateConfigApplyParams = ajv.compile<ConfigApplyParams>(ConfigApplyParamsSchema);
@@ -590,10 +603,13 @@ export {
   SessionsSendParamsSchema,
   SessionsAbortParamsSchema,
   SessionsPatchParamsSchema,
+  SessionsGetParamsSchema,
   SessionsResetParamsSchema,
   SessionsDeleteParamsSchema,
   SessionsCompactParamsSchema,
+  SessionsUsageLogsParamsSchema,
   SessionsUsageParamsSchema,
+  SessionsUsageTimeseriesParamsSchema,
   ConfigGetParamsSchema,
   ConfigSetParamsSchema,
   ConfigApplyParamsSchema,
