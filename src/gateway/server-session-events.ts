@@ -77,6 +77,7 @@ function buildGatewaySessionSnapshot(params: {
     runtimeMs: sessionRow.runtimeMs,
     compactionCheckpointCount: sessionRow.compactionCheckpointCount,
     latestCompactionCheckpoint: sessionRow.latestCompactionCheckpoint,
+    xlotyl: sessionRow.xlotyl,
   };
 }
 

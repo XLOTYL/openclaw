@@ -37,6 +37,7 @@ import {
   type SessionEntry,
   type SessionStoreTarget,
   type SessionScope,
+  type SessionXlotylMeta,
 } from "../config/sessions.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { openBoundaryFileSync } from "../infra/boundary-file-read.js";
@@ -1213,6 +1214,23 @@ export function buildGatewaySessionRow(params: {
       : transcriptUsage?.totalTokensFresh === true;
   const childSessions = resolveChildSessionKeys(key, store);
   const latestCompactionCheckpoint = resolveLatestCompactionCheckpoint(entry);
+  const xlotyl: SessionXlotylMeta | undefined = entry?.xlotyl
+    ? {
+        authority: entry.xlotyl.authority ?? "local",
+        workflow_id: entry.xlotyl.workflow_id,
+        engineering_session_id: entry.xlotyl.engineering_session_id,
+        run_id: entry.xlotyl.run_id,
+        active_task_packet_ref: entry.xlotyl.active_task_packet_ref,
+        verification_report_ref: entry.xlotyl.verification_report_ref,
+        required_gates: Array.isArray(entry.xlotyl.required_gates)
+          ? entry.xlotyl.required_gates
+          : undefined,
+        ready_for_task_decomposition: entry.xlotyl.ready_for_task_decomposition,
+        status: entry.xlotyl.status,
+        last_event_id: entry.xlotyl.last_event_id,
+        last_event_cursor: entry.xlotyl.last_event_cursor,
+      }
+    : { authority: "local" };
   const estimatedCostUsd =
     resolveEstimatedSessionCostUsd({
       cfg,
@@ -1302,6 +1320,7 @@ export function buildGatewaySessionRow(params: {
     lastThreadId: deliveryFields.lastThreadId ?? entry?.lastThreadId,
     compactionCheckpointCount: entry?.compactionCheckpoints?.length,
     latestCompactionCheckpoint,
+    xlotyl,
   };
 }
 

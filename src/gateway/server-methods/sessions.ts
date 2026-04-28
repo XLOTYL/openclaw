@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { CURRENT_SESSION_VERSION, SessionManager } from "@mariozechner/pi-coding-agent";
+import {
+  birthaQueryStream,
+  birthaWorkflowCancel,
+} from "../../../extensions/birtha-bridge/index.ts";
 import { resolveAgentWorkspaceDir, resolveDefaultAgentId } from "../../agents/agent-scope.js";
 import {
   abortEmbeddedPiRun,
@@ -33,11 +37,13 @@ import {
   resolveAgentIdFromSessionKey,
   toAgentStoreSessionKey,
 } from "../../routing/session-key.js";
+import { emitSessionTranscriptUpdate } from "../../sessions/transcript-events.js";
 import {
   normalizeOptionalLowercaseString,
   normalizeOptionalString,
   readStringValue,
 } from "../../shared/string-coerce.js";
+import { resolveChatRunExpiresAtMs } from "../chat-abort.js";
 import { GATEWAY_CLIENT_IDS } from "../protocol/client-info.js";
 import {
   ErrorCodes,
@@ -141,6 +147,293 @@ function shouldAttachPendingMessageSeq(params: { payload: unknown; cached?: bool
   return status === "started";
 }
 
+type GovernedSessionEvent = Record<string, unknown>;
+type GovernedSessionXlotylPatch = Partial<NonNullable<SessionEntry["xlotyl"]>>;
+
+function isGovernedSession(entry: SessionEntry | undefined): boolean {
+  return entry?.xlotyl?.authority === "xlotyl_governed";
+}
+
+function resolveBirthaBridgeRuntime(cfg: Record<string, unknown>): {
+  birthaApiBaseUrl?: string;
+  bearerToken?: string;
+} {
+  const plugins =
+    cfg.plugins && typeof cfg.plugins === "object" && !Array.isArray(cfg.plugins)
+      ? (cfg.plugins as Record<string, unknown>)
+      : {};
+  const entries =
+    plugins.entries && typeof plugins.entries === "object" && !Array.isArray(plugins.entries)
+      ? (plugins.entries as Record<string, unknown>)
+      : {};
+  const birthaEntry =
+    entries["birtha-bridge"] &&
+    typeof entries["birtha-bridge"] === "object" &&
+    !Array.isArray(entries["birtha-bridge"])
+      ? (entries["birtha-bridge"] as Record<string, unknown>)
+      : {};
+  const pluginConfig =
+    birthaEntry.config &&
+    typeof birthaEntry.config === "object" &&
+    !Array.isArray(birthaEntry.config)
+      ? (birthaEntry.config as Record<string, unknown>)
+      : {};
+  const birthaApiBaseUrl =
+    normalizeOptionalString(process.env.BIRTHA_API_BASE_URL) ??
+    normalizeOptionalString(process.env.XLOTYL_API_URL) ??
+    normalizeOptionalString(
+      typeof pluginConfig.birthaApiBaseUrl === "string" ? pluginConfig.birthaApiBaseUrl : undefined,
+    );
+  const bearerToken =
+    normalizeOptionalString(process.env.BIRTHA_API_TOKEN) ??
+    normalizeOptionalString(process.env.XLOTYL_API_TOKEN) ??
+    normalizeOptionalString(
+      typeof pluginConfig.birthaApiToken === "string" ? pluginConfig.birthaApiToken : undefined,
+    );
+  return {
+    birthaApiBaseUrl: birthaApiBaseUrl?.replace(/\/$/, ""),
+    bearerToken,
+  };
+}
+
+function findTrackedSessionRun(params: {
+  context: Pick<GatewayRequestContext, "chatAbortControllers">;
+  requestedKey: string;
+  canonicalKey: string;
+  runId?: string;
+}): { runId: string; controller: AbortController } | null {
+  if (params.runId) {
+    const active = params.context.chatAbortControllers.get(params.runId);
+    if (active) {
+      return { runId: params.runId, controller: active.controller };
+    }
+  }
+  for (const [runId, active] of params.context.chatAbortControllers) {
+    if (active.sessionKey === params.canonicalKey || active.sessionKey === params.requestedKey) {
+      return { runId, controller: active.controller };
+    }
+  }
+  return null;
+}
+
+function appendGatewayTranscriptMessage(params: {
+  sessionKey: string;
+  sessionId: string;
+  storePath: string;
+  sessionFile?: string;
+  agentId: string;
+  role: "assistant" | "system" | "user";
+  text: string;
+  idempotencyKey?: string;
+}): { ok: true; transcriptPath: string; messageId: string } | { ok: false; error: string } {
+  const ensured = ensureSessionTranscriptFile({
+    sessionId: params.sessionId,
+    storePath: params.storePath,
+    sessionFile: params.sessionFile,
+    agentId: params.agentId,
+  });
+  if (!ensured.ok) {
+    return ensured;
+  }
+  try {
+    const sessionManager = SessionManager.open(ensured.transcriptPath);
+    const messageBody: Record<string, unknown> = {
+      role: params.role,
+      content: params.role === "assistant" ? [{ type: "text", text: params.text }] : params.text,
+      timestamp: Date.now(),
+      ...(params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : {}),
+    };
+    if (params.role === "assistant") {
+      messageBody.stopReason = "stop";
+      messageBody.usage = { input: 0, output: 0, totalTokens: 0 };
+      messageBody.api = "openai-responses";
+      messageBody.provider = "openclaw";
+      messageBody.model = "xlotyl-governed";
+    }
+    const messageId = sessionManager.appendMessage(
+      messageBody as Parameters<SessionManager["appendMessage"]>[0],
+    );
+    emitSessionTranscriptUpdate({
+      sessionFile: ensured.transcriptPath,
+      sessionKey: params.sessionKey,
+      message: messageBody,
+      messageId,
+    });
+    return { ok: true, transcriptPath: ensured.transcriptPath, messageId };
+  } catch (err) {
+    return { ok: false, error: formatErrorMessage(err) };
+  }
+}
+
+function deriveGovernedSessionStatus(event: GovernedSessionEvent): string | undefined {
+  const type = normalizeOptionalString(event.type);
+  if (!type) {
+    return undefined;
+  }
+  if (type === "run.started") {
+    return "running";
+  }
+  if (type === "run.completed") {
+    return "completed";
+  }
+  if (type === "run.failed") {
+    return "failed";
+  }
+  if (type === "cancel.ack") {
+    return "cancel_requested";
+  }
+  if (type === "verification.updated") {
+    return "verifying";
+  }
+  const payload =
+    event.payload && typeof event.payload === "object" && !Array.isArray(event.payload)
+      ? (event.payload as Record<string, unknown>)
+      : undefined;
+  return normalizeOptionalString(payload?.status) ?? normalizeOptionalString(payload?.phase);
+}
+
+function extractGovernedSessionPatchFromEvent(
+  event: GovernedSessionEvent,
+): GovernedSessionXlotylPatch {
+  const payload =
+    event.payload && typeof event.payload === "object" && !Array.isArray(event.payload)
+      ? (event.payload as Record<string, unknown>)
+      : undefined;
+  const referentialState =
+    payload?.referential_state &&
+    typeof payload.referential_state === "object" &&
+    !Array.isArray(payload.referential_state)
+      ? (payload.referential_state as Record<string, unknown>)
+      : undefined;
+  return {
+    authority: "xlotyl_governed",
+    workflow_id:
+      normalizeOptionalString(event.workflow_id) ??
+      normalizeOptionalString(payload?.workflow_id) ??
+      normalizeOptionalString(referentialState?.workflow_id),
+    engineering_session_id:
+      normalizeOptionalString(event.engineering_session_id) ??
+      normalizeOptionalString(payload?.engineering_session_id) ??
+      normalizeOptionalString(referentialState?.engineering_session_id),
+    run_id:
+      normalizeOptionalString(event.run_id) ??
+      normalizeOptionalString(payload?.run_id) ??
+      normalizeOptionalString(referentialState?.run_id),
+    active_task_packet_ref:
+      normalizeOptionalString(payload?.active_task_packet_ref) ??
+      normalizeOptionalString(referentialState?.active_task_packet_ref),
+    verification_report_ref:
+      normalizeOptionalString(payload?.verification_report_ref) ??
+      normalizeOptionalString(referentialState?.verification_report_ref),
+    required_gates: Array.isArray(payload?.required_gates)
+      ? (payload.required_gates as NonNullable<SessionEntry["xlotyl"]>["required_gates"])
+      : Array.isArray(referentialState?.required_gates)
+        ? (referentialState.required_gates as NonNullable<SessionEntry["xlotyl"]>["required_gates"])
+        : undefined,
+    ready_for_task_decomposition:
+      typeof payload?.ready_for_task_decomposition === "boolean"
+        ? payload.ready_for_task_decomposition
+        : typeof referentialState?.ready_for_task_decomposition === "boolean"
+          ? referentialState.ready_for_task_decomposition
+          : undefined,
+    status: deriveGovernedSessionStatus(event),
+    last_event_id: normalizeOptionalString(event.event_id),
+    last_event_cursor:
+      normalizeOptionalString(event.cursor) ?? normalizeOptionalString(event.event_id),
+  };
+}
+
+async function mergeGovernedSessionMetadata(params: {
+  storePath: string;
+  canonicalKey: string;
+  patch: GovernedSessionXlotylPatch;
+}) {
+  await updateSessionStore(params.storePath, (store) => {
+    const existing = store[params.canonicalKey];
+    if (!existing) {
+      return;
+    }
+    store[params.canonicalKey] = {
+      ...existing,
+      updatedAt: Date.now(),
+      xlotyl: {
+        authority: "xlotyl_governed",
+        ...existing.xlotyl,
+        ...params.patch,
+      },
+    };
+  });
+}
+
+async function cancelGovernedSessionRun(params: {
+  requestedKey: string;
+  canonicalKey: string;
+  storePath: string;
+  entry: SessionEntry;
+  context: GatewayRequestContext;
+  runId?: string;
+  reason: "abort" | "steer";
+}): Promise<{ aborted: boolean; runId: string | null; error?: ReturnType<typeof errorShape> }> {
+  const tracked = findTrackedSessionRun({
+    context: params.context,
+    requestedKey: params.requestedKey,
+    canonicalKey: params.canonicalKey,
+    runId: params.runId,
+  });
+  tracked?.controller.abort();
+
+  const runtime = resolveBirthaBridgeRuntime(loadConfig() as Record<string, unknown>);
+  const workflowId = normalizeOptionalString(params.entry.xlotyl?.workflow_id);
+  if (workflowId && runtime.birthaApiBaseUrl) {
+    try {
+      await birthaWorkflowCancel({
+        birthaApiBaseUrl: runtime.birthaApiBaseUrl,
+        bearerToken: runtime.bearerToken,
+        workflowId,
+      });
+    } catch (err) {
+      return {
+        aborted: Boolean(tracked),
+        runId: tracked?.runId ?? null,
+        error: errorShape(
+          ErrorCodes.UNAVAILABLE,
+          `failed to cancel governed workflow: ${formatErrorMessage(err)}`,
+        ),
+      };
+    }
+  }
+
+  await mergeGovernedSessionMetadata({
+    storePath: params.storePath,
+    canonicalKey: params.canonicalKey,
+    patch: {
+      authority: "xlotyl_governed",
+      status: params.reason === "steer" ? "cancel_requested" : "cancel_requested",
+      last_event_cursor: params.entry.xlotyl?.last_event_cursor,
+    },
+  });
+
+  const appended = appendGatewayTranscriptMessage({
+    sessionKey: params.canonicalKey,
+    sessionId: params.entry.sessionId,
+    storePath: params.storePath,
+    sessionFile: params.entry.sessionFile,
+    agentId: resolveAgentIdFromSessionKey(params.canonicalKey),
+    role: "system",
+    text:
+      params.reason === "steer"
+        ? "Previous governed workflow cancelled before steer."
+        : "Governed workflow cancel requested.",
+  });
+  if (!appended.ok) {
+    params.context.logGateway.warn(
+      `governed session cancel transcript append failed: ${appended.error}`,
+    );
+  }
+
+  return { aborted: Boolean(tracked) || Boolean(workflowId), runId: tracked?.runId ?? null };
+}
+
 function emitSessionsChanged(
   context: Pick<GatewayRequestContext, "broadcastToConnIds" | "getSessionEventSubscriberConnIds">,
   payload: { sessionKey?: string; reason: string; compacted?: boolean },
@@ -205,6 +498,7 @@ function emitSessionsChanged(
             runtimeMs: sessionRow.runtimeMs,
             compactionCheckpointCount: sessionRow.compactionCheckpointCount,
             latestCompactionCheckpoint: sessionRow.latestCompactionCheckpoint,
+            xlotyl: sessionRow.xlotyl,
           }
         : {}),
     },
@@ -433,6 +727,234 @@ async function interruptSessionRunIfActive(params: {
   return { interrupted: true };
 }
 
+async function handleGovernedSessionSend(params: {
+  method: "sessions.send" | "sessions.steer";
+  message: string;
+  thinking?: string;
+  attachments?: unknown[];
+  timeoutMs?: number;
+  idempotencyKey: string;
+  canonicalKey: string;
+  storePath: string;
+  entry: SessionEntry;
+  context: GatewayRequestContext;
+  respond: RespondFn;
+  interruptedActiveRun: boolean;
+}) {
+  const cfg = loadConfig();
+  const runtime = resolveBirthaBridgeRuntime(cfg as Record<string, unknown>);
+  if (!runtime.birthaApiBaseUrl) {
+    params.respond(
+      false,
+      undefined,
+      errorShape(
+        ErrorCodes.UNAVAILABLE,
+        "birtha bridge not configured; set BIRTHA_API_BASE_URL or plugin birtha-bridge.birthaApiBaseUrl",
+      ),
+    );
+    return;
+  }
+
+  const agentId = resolveAgentIdFromSessionKey(params.canonicalKey);
+  const userAppend = appendGatewayTranscriptMessage({
+    sessionKey: params.canonicalKey,
+    sessionId: params.entry.sessionId,
+    storePath: params.storePath,
+    sessionFile: params.entry.sessionFile,
+    agentId,
+    role: "user",
+    text: params.message,
+    idempotencyKey: params.idempotencyKey,
+  });
+  if (!userAppend.ok) {
+    params.respond(
+      false,
+      undefined,
+      errorShape(
+        ErrorCodes.UNAVAILABLE,
+        `failed to persist governed user turn: ${userAppend.error}`,
+      ),
+    );
+    return;
+  }
+  const messageSeq = readSessionMessages(
+    params.entry.sessionId,
+    params.storePath,
+    params.entry.sessionFile ?? userAppend.transcriptPath,
+  ).length;
+  const controller = new AbortController();
+  params.context.chatAbortControllers.set(params.idempotencyKey, {
+    controller,
+    sessionId: params.entry.sessionId,
+    sessionKey: params.canonicalKey,
+    startedAtMs: Date.now(),
+    expiresAtMs: resolveChatRunExpiresAtMs({
+      now: Date.now(),
+      timeoutMs: params.timeoutMs ?? 300_000,
+    }),
+  });
+
+  void (async () => {
+    try {
+      for await (const event of birthaQueryStream({
+        birthaApiBaseUrl: runtime.birthaApiBaseUrl!,
+        bearerToken: runtime.bearerToken,
+        prompt: params.message,
+        context: params.thinking ? { thinking: params.thinking } : undefined,
+        openclawEnvelope: {
+          sessionKey: params.canonicalKey,
+          workflowId: params.entry.xlotyl?.workflow_id,
+          engineeringSessionId: params.entry.xlotyl?.engineering_session_id,
+          runId: params.entry.xlotyl?.run_id,
+          channel: params.entry.channel ?? "openclaw.gateway",
+          sender:
+            params.method === "sessions.steer"
+              ? "openclaw.sessions.steer"
+              : "openclaw.sessions.send",
+          idempotencyKey: params.idempotencyKey,
+          attachments: [],
+          clientCapabilities: {
+            governed_sessions: true,
+            live_session_projection: true,
+            requested_attachments: Array.isArray(params.attachments)
+              ? params.attachments.length
+              : 0,
+          },
+        },
+        timeoutMs: params.timeoutMs,
+        signal: controller.signal,
+        lastEventId: params.entry.xlotyl?.last_event_id,
+        eventCursor: params.entry.xlotyl?.last_event_cursor,
+      })) {
+        const type = normalizeOptionalString(event.type) ?? "unknown";
+        await mergeGovernedSessionMetadata({
+          storePath: params.storePath,
+          canonicalKey: params.canonicalKey,
+          patch: extractGovernedSessionPatchFromEvent(event),
+        });
+        if (
+          type === "run.started" ||
+          type === "run.progress" ||
+          type === "verification.updated" ||
+          type === "pending_mode_change" ||
+          type === "clarification.required" ||
+          type === "escalation.raised"
+        ) {
+          emitSessionsChanged(params.context, {
+            sessionKey: params.canonicalKey,
+            reason: "governed-event",
+          });
+          continue;
+        }
+        if (type === "run.completed") {
+          const payload =
+            event.payload && typeof event.payload === "object" && !Array.isArray(event.payload)
+              ? (event.payload as Record<string, unknown>)
+              : undefined;
+          const finalResponse = normalizeOptionalString(payload?.final_response);
+          if (finalResponse) {
+            const appended = appendGatewayTranscriptMessage({
+              sessionKey: params.canonicalKey,
+              sessionId: params.entry.sessionId,
+              storePath: params.storePath,
+              sessionFile: params.entry.sessionFile,
+              agentId,
+              role: "assistant",
+              text: finalResponse,
+            });
+            if (!appended.ok) {
+              params.context.logGateway.warn(
+                `governed assistant transcript append failed: ${appended.error}`,
+              );
+            }
+          }
+          emitSessionsChanged(params.context, {
+            sessionKey: params.canonicalKey,
+            reason: "governed-complete",
+          });
+          continue;
+        }
+        if (type === "run.failed" || type === "cancel.ack") {
+          const payload =
+            event.payload && typeof event.payload === "object" && !Array.isArray(event.payload)
+              ? (event.payload as Record<string, unknown>)
+              : undefined;
+          const message =
+            type === "cancel.ack"
+              ? "Governed workflow cancel acknowledged."
+              : (normalizeOptionalString(payload?.message) ?? "Governed workflow failed.");
+          const appended = appendGatewayTranscriptMessage({
+            sessionKey: params.canonicalKey,
+            sessionId: params.entry.sessionId,
+            storePath: params.storePath,
+            sessionFile: params.entry.sessionFile,
+            agentId,
+            role: "system",
+            text: message,
+          });
+          if (!appended.ok) {
+            params.context.logGateway.warn(
+              `governed terminal transcript append failed: ${appended.error}`,
+            );
+          }
+          emitSessionsChanged(params.context, {
+            sessionKey: params.canonicalKey,
+            reason: type === "cancel.ack" ? "abort" : "governed-failed",
+          });
+        }
+      }
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        await mergeGovernedSessionMetadata({
+          storePath: params.storePath,
+          canonicalKey: params.canonicalKey,
+          patch: {
+            authority: "xlotyl_governed",
+            status: "failed",
+          },
+        });
+        const appended = appendGatewayTranscriptMessage({
+          sessionKey: params.canonicalKey,
+          sessionId: params.entry.sessionId,
+          storePath: params.storePath,
+          sessionFile: params.entry.sessionFile,
+          agentId,
+          role: "system",
+          text: `Governed workflow stream failed: ${formatErrorMessage(err)}`,
+        });
+        if (!appended.ok) {
+          params.context.logGateway.warn(
+            `governed failure transcript append failed: ${appended.error}`,
+          );
+        }
+        emitSessionsChanged(params.context, {
+          sessionKey: params.canonicalKey,
+          reason: "governed-failed",
+        });
+      }
+    } finally {
+      params.context.chatAbortControllers.delete(params.idempotencyKey);
+    }
+  })();
+
+  params.respond(
+    true,
+    {
+      runId: params.idempotencyKey,
+      status: "started",
+      messageSeq,
+      governed: true,
+      authoritative: true,
+      ...(params.interruptedActiveRun ? { interruptedActiveRun: true } : {}),
+    },
+    undefined,
+  );
+  emitSessionsChanged(params.context, {
+    sessionKey: params.canonicalKey,
+    reason: params.interruptedActiveRun ? "steer" : "send",
+  });
+}
+
 async function handleSessionSend(params: {
   method: "sessions.send" | "sessions.steer";
   req: GatewayRequestHandlerOptions["req"];
@@ -465,15 +987,24 @@ async function handleSessionSend(params: {
 
   let interruptedActiveRun = false;
   if (params.interruptIfActive) {
-    const interruptResult = await interruptSessionRunIfActive({
-      req: params.req,
-      context: params.context,
-      client: params.client,
-      isWebchatConnect: params.isWebchatConnect,
-      requestedKey: key,
-      canonicalKey,
-      sessionId: entry.sessionId,
-    });
+    const interruptResult = isGovernedSession(entry)
+      ? await cancelGovernedSessionRun({
+          requestedKey: key,
+          canonicalKey,
+          storePath,
+          entry,
+          context: params.context,
+          reason: "steer",
+        }).then((result) => ({ interrupted: result.aborted, error: result.error }))
+      : await interruptSessionRunIfActive({
+          req: params.req,
+          context: params.context,
+          client: params.client,
+          isWebchatConnect: params.isWebchatConnect,
+          requestedKey: key,
+          canonicalKey,
+          sessionId: entry.sessionId,
+        });
     if (interruptResult.error) {
       params.respond(false, undefined, interruptResult.error);
       return;
@@ -491,6 +1022,23 @@ async function handleSessionSend(params: {
     typeof rawIdempotencyKey === "string" && rawIdempotencyKey.trim()
       ? rawIdempotencyKey.trim()
       : randomUUID();
+  if (isGovernedSession(entry)) {
+    await handleGovernedSessionSend({
+      method: params.method,
+      message: (p as { message: string }).message,
+      thinking: (p as { thinking?: string }).thinking,
+      attachments: (p as { attachments?: unknown[] }).attachments,
+      timeoutMs: (p as { timeoutMs?: number }).timeoutMs,
+      idempotencyKey,
+      canonicalKey,
+      storePath,
+      entry,
+      context: params.context,
+      respond: params.respond,
+      interruptedActiveRun,
+    });
+    return;
+  }
   await chatHandlers["chat.send"]({
     req: params.req,
     params: {
@@ -679,10 +1227,12 @@ export const sessionsHandlers: GatewayRequestHandlers = {
           limit,
           maxChars,
         );
+        const sessionRow = loadGatewaySessionRow(target.canonicalKey);
         previews.push({
-          key,
+          key: target.canonicalKey,
           status: items.length > 0 ? "ok" : "empty",
           items,
+          ...(sessionRow?.xlotyl ? { xlotyl: sessionRow.xlotyl } : {}),
         });
       } catch {
         previews.push({ key, status: "error", items: [] });
@@ -831,6 +1381,12 @@ export const sessionsHandlers: GatewayRequestHandlers = {
           key: target.canonicalKey,
           label: normalizeOptionalString(p.label),
           model: normalizeOptionalString(p.model),
+          authority:
+            typeof p.authority === "string" && p.authority.trim() ? p.authority.trim() : undefined,
+          xlotyl:
+            p.xlotyl && typeof p.xlotyl === "object" && !Array.isArray(p.xlotyl)
+              ? (p.xlotyl as Record<string, unknown>)
+              : undefined,
         },
         loadGatewayModelCatalog: context.loadGatewayModelCatalog,
       });
@@ -898,25 +1454,47 @@ export const sessionsHandlers: GatewayRequestHandlers = {
       : undefined;
 
     if (initialMessage) {
-      await chatHandlers["chat.send"]({
-        req,
-        params: {
-          sessionKey: target.canonicalKey,
+      const initialRunId = randomUUID();
+      if (isGovernedSession(createdEntry)) {
+        await handleGovernedSessionSend({
+          method: "sessions.send",
           message: initialMessage,
-          idempotencyKey: randomUUID(),
-        },
-        respond: (ok, payload, error, meta) => {
-          if (ok && payload && typeof payload === "object") {
-            runPayload = payload as Record<string, unknown>;
-          } else {
-            runError = error;
-          }
-          runMeta = meta;
-        },
-        context,
-        client,
-        isWebchatConnect,
-      });
+          idempotencyKey: initialRunId,
+          canonicalKey: target.canonicalKey,
+          storePath: target.storePath,
+          entry: createdEntry,
+          context,
+          interruptedActiveRun: false,
+          respond: (ok, payload, error, meta) => {
+            if (ok && payload && typeof payload === "object") {
+              runPayload = payload as Record<string, unknown>;
+            } else {
+              runError = error;
+            }
+            runMeta = meta;
+          },
+        });
+      } else {
+        await chatHandlers["chat.send"]({
+          req,
+          params: {
+            sessionKey: target.canonicalKey,
+            message: initialMessage,
+            idempotencyKey: initialRunId,
+          },
+          respond: (ok, payload, error, meta) => {
+            if (ok && payload && typeof payload === "object") {
+              runPayload = payload as Record<string, unknown>;
+            } else {
+              runError = error;
+            }
+            runMeta = meta;
+          },
+          context,
+          client,
+          isWebchatConnect,
+        });
+      }
     }
 
     const runStarted =
@@ -1206,7 +1784,38 @@ export const sessionsHandlers: GatewayRequestHandlers = {
     if (!key) {
       return;
     }
-    const { canonicalKey } = loadSessionEntry(key);
+    const { canonicalKey, entry, storePath } = loadSessionEntry(key);
+    if (entry?.sessionId && isGovernedSession(entry)) {
+      const cancelled = await cancelGovernedSessionRun({
+        requestedKey: key,
+        canonicalKey,
+        storePath,
+        entry,
+        context,
+        runId: readStringValue(p.runId),
+        reason: "abort",
+      });
+      if (cancelled.error) {
+        respond(false, undefined, cancelled.error);
+        return;
+      }
+      respond(
+        true,
+        {
+          ok: true,
+          abortedRunId: cancelled.runId,
+          status: cancelled.aborted ? "aborted" : "no-active-run",
+        },
+        undefined,
+      );
+      if (cancelled.aborted) {
+        emitSessionsChanged(context, {
+          sessionKey: canonicalKey,
+          reason: "abort",
+        });
+      }
+      return;
+    }
     const abortSessionKey = resolveAbortSessionKey({
       context,
       requestedKey: key,
@@ -1460,12 +2069,28 @@ export const sessionsHandlers: GatewayRequestHandlers = {
     const store = loadSessionStore(storePath);
     const entry = resolveFreshestSessionEntryFromStoreKeys(store, target.storeKeys);
     if (!entry?.sessionId) {
-      respond(true, { messages: [] }, undefined);
+      respond(
+        true,
+        {
+          sessionKey: target.canonicalKey,
+          messages: [],
+        },
+        undefined,
+      );
       return;
     }
     const allMessages = readSessionMessages(entry.sessionId, storePath, entry.sessionFile);
     const messages = limit < allMessages.length ? allMessages.slice(-limit) : allMessages;
-    respond(true, { messages }, undefined);
+    const sessionRow = loadGatewaySessionRow(target.canonicalKey);
+    respond(
+      true,
+      {
+        sessionKey: target.canonicalKey,
+        messages,
+        ...(sessionRow?.xlotyl ? { xlotyl: sessionRow.xlotyl } : {}),
+      },
+      undefined,
+    );
   },
   "sessions.compact": async ({ req, params, respond, context, client, isWebchatConnect }) => {
     if (!assertValidParams(params, validateSessionsCompactParams, "sessions.compact", respond)) {

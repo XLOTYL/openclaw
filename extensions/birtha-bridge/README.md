@@ -51,6 +51,17 @@ XLOTYL refs returned by governed flows:
 
 The mirror is non-authoritative. Canonical state remains in XLOTYL.
 
+For **governed OpenClaw sessions**, the OpenClaw-side continuity truth is the session entry's
+`xlotyl` block, not the plugin-local mirror. `sessions.send` / `sessions.steer` branch on
+`authority=xlotyl_governed`, route through `birthaQueryStream`, and project inbound XLOTYL lifecycle
+back into native OpenClaw `sessions.changed` / `session.message` semantics. The mirror remains a
+helper cache for standalone bridge helper usage outside the governed session adapter path.
+
+Canonical XLOTYL session projection surfaces:
+
+- `GET /api/openclaw/sessions/stream` — SSE projection of `sessions.changed` / `session.message`
+- `GET /api/openclaw/sessions/events` — finite cursor polling for the same envelopes
+
 Workflow status polling refreshes the same mirror from `GET /api/ai/workflows/{workflow_id}/status`
 using the status payload’s `id` / `workflow_id` and `result.referential_state`.
 

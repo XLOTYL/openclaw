@@ -2,6 +2,7 @@ export type BridgeRequestBase = {
   birthaApiBaseUrl: string;
   bearerToken?: string;
   timeoutMs?: number;
+  signal?: AbortSignal;
 };
 
 type QueryValue = string | number | boolean | null | undefined;
@@ -20,11 +21,15 @@ function normalizeBaseUrl(birthaApiBaseUrl: string): string {
   return birthaApiBaseUrl.replace(/\/$/, "");
 }
 
-function withTimeout(timeoutMs: number | undefined): AbortSignal | undefined {
-  if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-    return undefined;
+function withTimeout(timeoutMs: number | undefined, signal?: AbortSignal): AbortSignal | undefined {
+  const timeoutSignal =
+    typeof timeoutMs === "number" && Number.isFinite(timeoutMs) && timeoutMs > 0
+      ? AbortSignal.timeout(timeoutMs)
+      : undefined;
+  if (timeoutSignal && signal) {
+    return AbortSignal.any([timeoutSignal, signal]);
   }
-  return AbortSignal.timeout(timeoutMs);
+  return timeoutSignal ?? signal;
 }
 
 function buildHeaders(
@@ -82,6 +87,7 @@ export async function bridgePostJson(params: {
   body: Record<string, unknown>;
   label: string;
   timeoutMs?: number;
+  signal?: AbortSignal;
   headers?: Record<string, string>;
   query?: Record<string, QueryValue>;
 }): Promise<Record<string, unknown>> {
@@ -92,7 +98,7 @@ export async function bridgePostJson(params: {
       ...params.headers,
     }),
     body: JSON.stringify(params.body),
-    signal: withTimeout(params.timeoutMs),
+    signal: withTimeout(params.timeoutMs, params.signal),
   });
   return parseJsonResponse(response, params.label);
 }
@@ -103,6 +109,7 @@ export async function bridgeGetJson(params: {
   path: string;
   label: string;
   timeoutMs?: number;
+  signal?: AbortSignal;
   headers?: Record<string, string>;
   query?: Record<string, QueryValue>;
 }): Promise<Record<string, unknown>> {
@@ -111,7 +118,7 @@ export async function bridgeGetJson(params: {
       Accept: "application/json",
       ...params.headers,
     }),
-    signal: withTimeout(params.timeoutMs),
+    signal: withTimeout(params.timeoutMs, params.signal),
   });
   return parseJsonResponse(response, params.label);
 }
@@ -123,6 +130,7 @@ export async function bridgePostStream(params: {
   body: Record<string, unknown>;
   label: string;
   timeoutMs?: number;
+  signal?: AbortSignal;
   headers?: Record<string, string>;
   query?: Record<string, QueryValue>;
 }): Promise<Response> {
@@ -134,7 +142,7 @@ export async function bridgePostStream(params: {
       ...params.headers,
     }),
     body: JSON.stringify(params.body),
-    signal: withTimeout(params.timeoutMs),
+    signal: withTimeout(params.timeoutMs, params.signal),
   });
   if (!response.ok) {
     await parseJsonResponse(response, params.label);

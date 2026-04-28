@@ -1,6 +1,36 @@
 import { Type } from "@sinclair/typebox";
 import { NonEmptyString, SessionLabelString } from "./primitives.js";
 
+export const SessionAuthoritySchema = Type.Union([
+  Type.Literal("local"),
+  Type.Literal("xlotyl_governed"),
+]);
+
+export const SessionXlotylRequiredGateSchema = Type.Object(
+  {
+    gate_type: Type.Optional(Type.String()),
+    status: Type.Optional(Type.String()),
+    label: Type.Optional(Type.String()),
+  },
+  { additionalProperties: true },
+);
+
+export const SessionXlotylMetaSchema = Type.Object(
+  {
+    workflow_id: Type.Optional(NonEmptyString),
+    engineering_session_id: Type.Optional(NonEmptyString),
+    run_id: Type.Optional(NonEmptyString),
+    active_task_packet_ref: Type.Optional(NonEmptyString),
+    verification_report_ref: Type.Optional(NonEmptyString),
+    required_gates: Type.Optional(Type.Array(SessionXlotylRequiredGateSchema)),
+    ready_for_task_decomposition: Type.Optional(Type.Boolean()),
+    status: Type.Optional(Type.String()),
+    last_event_id: Type.Optional(NonEmptyString),
+    last_event_cursor: Type.Optional(NonEmptyString),
+  },
+  { additionalProperties: false },
+);
+
 export const SessionCompactionCheckpointReasonSchema = Type.Union([
   Type.Literal("manual"),
   Type.Literal("auto-threshold"),
@@ -100,6 +130,8 @@ export const SessionsCreateParamsSchema = Type.Object(
     label: Type.Optional(SessionLabelString),
     model: Type.Optional(NonEmptyString),
     parentSessionKey: Type.Optional(NonEmptyString),
+    authority: Type.Optional(SessionAuthoritySchema),
+    xlotyl: Type.Optional(SessionXlotylMetaSchema),
     task: Type.Optional(Type.String()),
     message: Type.Optional(Type.String()),
   },
@@ -143,6 +175,8 @@ export const SessionsAbortParamsSchema = Type.Object(
 export const SessionsPatchParamsSchema = Type.Object(
   {
     key: NonEmptyString,
+    authority: Type.Optional(Type.Union([SessionAuthoritySchema, Type.Null()])),
+    xlotyl: Type.Optional(Type.Union([SessionXlotylMetaSchema, Type.Null()])),
     label: Type.Optional(Type.Union([SessionLabelString, Type.Null()])),
     thinkingLevel: Type.Optional(Type.Union([NonEmptyString, Type.Null()])),
     fastMode: Type.Optional(Type.Union([Type.Boolean(), Type.Null()])),

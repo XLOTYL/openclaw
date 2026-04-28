@@ -1,5 +1,9 @@
 import type { ChatType } from "../channels/chat-type.js";
-import type { SessionCompactionCheckpoint, SessionEntry } from "../config/sessions/types.js";
+import type {
+  SessionCompactionCheckpoint,
+  SessionEntry,
+  SessionXlotylMeta,
+} from "../config/sessions/types.js";
 import type {
   GatewayAgentRow as SharedGatewayAgentRow,
   SessionsListResultBase,
@@ -67,6 +71,7 @@ export type GatewaySessionRow = {
   lastThreadId?: SessionEntry["lastThreadId"];
   compactionCheckpointCount?: number;
   latestCompactionCheckpoint?: SessionCompactionCheckpoint;
+  xlotyl?: SessionXlotylMeta;
 };
 
 export type GatewayAgentRow = SharedGatewayAgentRow;
@@ -80,6 +85,7 @@ export type SessionsPreviewEntry = {
   key: string;
   status: "ok" | "empty" | "missing" | "error";
   items: SessionPreviewItem[];
+  xlotyl?: SessionXlotylMeta;
 };
 
 export type SessionsPreviewResult = {

@@ -616,6 +616,99 @@ describe("gateway server sessions", () => {
     ws.close();
   });
 
+  test("sessions.create persists governed xlotyl authority and list/get surfaces expose it", async () => {
+    const { storePath } = await createSessionStoreDir();
+    const { ws } = await openClient();
+
+    const created = await rpcReq<{
+      key?: string;
+      entry?: {
+        xlotyl?: {
+          authority?: string;
+          workflow_id?: string;
+          engineering_session_id?: string;
+          run_id?: string;
+        };
+      };
+    }>(ws, "sessions.create", {
+      agentId: "ops",
+      label: "Governed Session",
+      authority: "xlotyl_governed",
+      xlotyl: {
+        workflow_id: "wf-governed-1",
+        engineering_session_id: "eng-governed-1",
+        run_id: "run-governed-1",
+      },
+    });
+
+    expect(created.ok).toBe(true);
+    expect(created.payload?.entry?.xlotyl).toEqual({
+      authority: "xlotyl_governed",
+      workflow_id: "wf-governed-1",
+      engineering_session_id: "eng-governed-1",
+      run_id: "run-governed-1",
+    });
+
+    const listed = await rpcReq<{
+      sessions: Array<{
+        key: string;
+        xlotyl?: {
+          authority?: string;
+          workflow_id?: string;
+          engineering_session_id?: string;
+          run_id?: string;
+        };
+      }>;
+    }>(ws, "sessions.list", {});
+    expect(listed.ok).toBe(true);
+    expect(
+      listed.payload?.sessions.find((session) => session.key === created.payload?.key)?.xlotyl,
+    ).toEqual({
+      authority: "xlotyl_governed",
+      workflow_id: "wf-governed-1",
+      engineering_session_id: "eng-governed-1",
+      run_id: "run-governed-1",
+    });
+
+    const loaded = await rpcReq<{
+      session?: {
+        xlotyl?: {
+          authority?: string;
+          workflow_id?: string;
+          engineering_session_id?: string;
+          run_id?: string;
+        };
+      };
+    }>(ws, "sessions.get", { key: created.payload?.key });
+    expect(loaded.ok).toBe(true);
+    expect(loaded.payload?.session?.xlotyl).toEqual({
+      authority: "xlotyl_governed",
+      workflow_id: "wf-governed-1",
+      engineering_session_id: "eng-governed-1",
+      run_id: "run-governed-1",
+    });
+
+    const rawStore = JSON.parse(await fs.readFile(storePath, "utf-8")) as Record<
+      string,
+      {
+        xlotyl?: {
+          authority?: string;
+          workflow_id?: string;
+          engineering_session_id?: string;
+          run_id?: string;
+        };
+      }
+    >;
+    expect(rawStore[created.payload?.key as string]?.xlotyl).toEqual({
+      authority: "xlotyl_governed",
+      workflow_id: "wf-governed-1",
+      engineering_session_id: "eng-governed-1",
+      run_id: "run-governed-1",
+    });
+
+    ws.close();
+  });
+
   test("sessions.list surfaces transcript usage and model fallbacks from the transcript", async () => {
     const { dir } = await createSessionStoreDir();
     testState.agentConfig = {

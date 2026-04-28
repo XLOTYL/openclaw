@@ -108,6 +108,29 @@ export type SessionPluginDebugEntry = {
   lines: string[];
 };
 
+export type SessionAuthority = "local" | "xlotyl_governed";
+
+export type SessionXlotylRequiredGate = {
+  gate_type?: string;
+  status?: string;
+  label?: string;
+  [key: string]: unknown;
+};
+
+export type SessionXlotylMeta = {
+  authority: SessionAuthority;
+  workflow_id?: string;
+  engineering_session_id?: string;
+  run_id?: string;
+  active_task_packet_ref?: string;
+  verification_report_ref?: string;
+  required_gates?: SessionXlotylRequiredGate[];
+  ready_for_task_decomposition?: boolean;
+  status?: string;
+  last_event_id?: string;
+  last_event_cursor?: string;
+};
+
 export type SessionEntry = {
   /**
    * Last delivered heartbeat payload (used to suppress duplicate heartbeat notifications).
@@ -256,6 +279,7 @@ export type SessionEntry = {
    */
   pluginDebugEntries?: SessionPluginDebugEntry[];
   acp?: SessionAcpMeta;
+  xlotyl?: SessionXlotylMeta;
 };
 
 function isSessionPluginTraceLine(line: string): boolean {

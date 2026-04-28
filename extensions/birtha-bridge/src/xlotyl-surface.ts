@@ -115,6 +115,17 @@ export async function buildXlotylSurfaceDocument(
         authoritative: true,
         lane: "governed",
       },
+      openclaw_session_stream: {
+        path: "/api/openclaw/sessions/stream",
+        authoritative: true,
+        lane: "governed_projection",
+        transport: "sse",
+      },
+      openclaw_session_events: {
+        path: "/api/openclaw/sessions/events",
+        authoritative: true,
+        lane: "governed_projection",
+      },
     },
     bridge_capabilities: {
       birtha_tool_query: { authoritative: false, lane: "tool_model" },
@@ -136,9 +147,20 @@ export async function buildXlotylSurfaceDocument(
           "verification_report_ref",
         ],
       },
+      governed_session_adapter: {
+        authoritative: false,
+        source_of_truth: "openclaw_session_entry_xlotyl_block",
+        projection_stream: "/api/openclaw/sessions/stream",
+        projection_events: "/api/openclaw/sessions/events",
+      },
     },
     frontend_module_hints: {
-      recommended_views: ["workflow_status", "running_index", "session_continuity"],
+      recommended_views: [
+        "workflow_status",
+        "running_index",
+        "session_continuity",
+        "governed_session_events",
+      ],
       preferred_transport: "gateway_http_plus_birtha_bridge",
       discovery_doc: "docs/ui-integration-v0.md",
     },

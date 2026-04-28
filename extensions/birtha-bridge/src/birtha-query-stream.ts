@@ -32,6 +32,7 @@ export type BirthaQueryStreamArgs = {
   sessionMirrorFilePath?: string;
   lastEventId?: string;
   eventCursor?: string;
+  signal?: AbortSignal;
 };
 
 function buildBirthaQueryStreamBody(args: BirthaQueryStreamArgs): Record<string, unknown> {
@@ -101,6 +102,7 @@ export async function* birthaQueryStream(
     headers: args.lastEventId ? { "Last-Event-ID": args.lastEventId } : undefined,
     label: "birtha_query_stream",
     timeoutMs: args.timeoutMs,
+    signal: args.signal,
   });
 
   for await (const event of createSseJsonEventIterator(response)) {

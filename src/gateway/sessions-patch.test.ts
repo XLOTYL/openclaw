@@ -180,6 +180,47 @@ describe("gateway sessions patch", () => {
     expect(entry.fastMode).toBeUndefined();
   });
 
+  test("persists governed xlotyl authority and continuity refs", async () => {
+    const entry = expectPatchOk(
+      await runPatch({
+        patch: {
+          key: MAIN_SESSION_KEY,
+          authority: "xlotyl_governed",
+          xlotyl: {
+            workflow_id: "wf-1",
+            engineering_session_id: "eng-1",
+            run_id: "run-1",
+            status: "running",
+            ready_for_task_decomposition: true,
+            required_gates: [{ gate_type: "verification", status: "pending" }],
+          },
+        },
+      }),
+    );
+    expect(entry.xlotyl).toEqual({
+      authority: "xlotyl_governed",
+      workflow_id: "wf-1",
+      engineering_session_id: "eng-1",
+      run_id: "run-1",
+      status: "running",
+      ready_for_task_decomposition: true,
+      required_gates: [{ gate_type: "verification", status: "pending" }],
+    });
+  });
+
+  test("rejects local authority with governed continuity refs", async () => {
+    const result = await runPatch({
+      patch: {
+        key: MAIN_SESSION_KEY,
+        authority: "local",
+        xlotyl: {
+          workflow_id: "wf-1",
+        },
+      },
+    });
+    expectPatchError(result, "xlotyl continuity fields require authority=xlotyl_governed");
+  });
+
   test("persists elevatedLevel=off (does not clear)", async () => {
     const entry = expectPatchOk(
       await runPatch({

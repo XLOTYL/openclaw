@@ -18,6 +18,11 @@ import {
   supportsXHighThinking,
 } from "../auto-reply/thinking.js";
 import type { SessionEntry } from "../config/sessions.js";
+import type {
+  SessionAuthority,
+  SessionXlotylMeta,
+  SessionXlotylRequiredGate,
+} from "../config/sessions/types.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { normalizeExecTarget } from "../infra/exec-approvals.js";
 import {
@@ -86,6 +91,50 @@ function normalizeSubagentControlScope(raw: string): "children" | "none" | undef
   return undefined;
 }
 
+function normalizeSessionAuthority(raw: unknown): SessionAuthority | undefined {
+  const normalized = normalizeOptionalLowercaseString(raw);
+  if (normalized === "local" || normalized === "xlotyl_governed") {
+    return normalized;
+  }
+  return undefined;
+}
+
+function normalizeXlotylRequiredGates(raw: unknown): SessionXlotylRequiredGate[] | undefined {
+  if (!Array.isArray(raw)) {
+    return undefined;
+  }
+  return raw
+    .filter((entry) => entry && typeof entry === "object" && !Array.isArray(entry))
+    .map((entry) => entry as SessionXlotylRequiredGate);
+}
+
+function normalizeSessionXlotylPatch(
+  raw: unknown,
+): Omit<SessionXlotylMeta, "authority"> | undefined | null {
+  if (raw === null) {
+    return null;
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return undefined;
+  }
+  const patch = raw as Record<string, unknown>;
+  return {
+    workflow_id: normalizeOptionalString(patch.workflow_id),
+    engineering_session_id: normalizeOptionalString(patch.engineering_session_id),
+    run_id: normalizeOptionalString(patch.run_id),
+    active_task_packet_ref: normalizeOptionalString(patch.active_task_packet_ref),
+    verification_report_ref: normalizeOptionalString(patch.verification_report_ref),
+    required_gates: normalizeXlotylRequiredGates(patch.required_gates),
+    ready_for_task_decomposition:
+      typeof patch.ready_for_task_decomposition === "boolean"
+        ? patch.ready_for_task_decomposition
+        : undefined,
+    status: normalizeOptionalString(patch.status),
+    last_event_id: normalizeOptionalString(patch.last_event_id),
+    last_event_cursor: normalizeOptionalString(patch.last_event_cursor),
+  };
+}
+
 export async function applySessionsPatchToStore(params: {
   cfg: OpenClawConfig;
   store: Record<string, SessionEntry>;
@@ -109,6 +158,42 @@ export async function applySessionsPatchToStore(params: {
         updatedAt: Math.max(existing.updatedAt ?? 0, now),
       }
     : { sessionId: randomUUID(), updatedAt: now };
+  const authorityPatch =
+    "authority" in patch ? normalizeSessionAuthority(patch.authority) : undefined;
+  if ("authority" in patch && patch.authority !== null && authorityPatch === undefined) {
+    return invalid('invalid authority (use "local" or "xlotyl_governed")');
+  }
+  const xlotylPatch = "xlotyl" in patch ? normalizeSessionXlotylPatch(patch.xlotyl) : undefined;
+  const nextAuthority =
+    authorityPatch ?? existing?.xlotyl?.authority ?? next.xlotyl?.authority ?? "local";
+
+  if (xlotylPatch === null) {
+    if (nextAuthority === "xlotyl_governed") {
+      next.xlotyl = { authority: "xlotyl_governed" };
+    } else {
+      delete next.xlotyl;
+    }
+  } else if (xlotylPatch !== undefined || authorityPatch !== undefined) {
+    next.xlotyl = {
+      ...existing?.xlotyl,
+      ...next.xlotyl,
+      ...xlotylPatch,
+      authority: nextAuthority,
+    };
+  }
+
+  if (next.xlotyl?.authority === "local") {
+    const localContinuityFields = [
+      next.xlotyl.workflow_id,
+      next.xlotyl.engineering_session_id,
+      next.xlotyl.run_id,
+      next.xlotyl.active_task_packet_ref,
+      next.xlotyl.verification_report_ref,
+    ];
+    if (localContinuityFields.some((value) => typeof value === "string" && value.trim())) {
+      return invalid("xlotyl continuity fields require authority=xlotyl_governed");
+    }
+  }
 
   if ("spawnedBy" in patch) {
     const raw = patch.spawnedBy;
