@@ -79,7 +79,9 @@ describe("tool-policy", () => {
     expect(isOwnerOnlyToolName("whatsapp_login")).toBe(true);
     expect(isOwnerOnlyToolName("cron")).toBe(true);
     expect(isOwnerOnlyToolName("gateway")).toBe(true);
+    expect(isOwnerOnlyToolName("operator")).toBe(true);
     expect(isOwnerOnlyToolName("nodes")).toBe(true);
+    expect(isOwnerOnlyToolName("sessions_lifecycle")).toBe(true);
     expect(isOwnerOnlyToolName("read")).toBe(false);
   });
 
@@ -87,7 +89,9 @@ describe("tool-policy", () => {
     expect(resolveOwnerOnlyToolApprovalClass("whatsapp_login")).toBe("interactive");
     expect(resolveOwnerOnlyToolApprovalClass("cron")).toBe("control_plane");
     expect(resolveOwnerOnlyToolApprovalClass("gateway")).toBe("control_plane");
+    expect(resolveOwnerOnlyToolApprovalClass("operator")).toBe("control_plane");
     expect(resolveOwnerOnlyToolApprovalClass("nodes")).toBe("exec_capable");
+    expect(resolveOwnerOnlyToolApprovalClass("sessions_lifecycle")).toBe("control_plane");
     expect(resolveOwnerOnlyToolApprovalClass("read")).toBeUndefined();
   });
 
@@ -100,7 +104,9 @@ describe("tool-policy", () => {
     expect(Object.fromEntries(sharedBackstops)).toEqual({
       cron: "control_plane",
       gateway: "control_plane",
+      operator: "control_plane",
       nodes: "exec_capable",
+      sessions_lifecycle: "control_plane",
       whatsapp_login: "interactive",
     });
   });

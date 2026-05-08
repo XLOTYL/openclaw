@@ -142,6 +142,7 @@ Allowlist:
 Discovery:
 
 - Use `agents_list` to see which agent ids are currently allowed for `sessions_spawn`.
+- To list or change **configured agent records** (gateway `agents.list` / create / update / delete) from an owner session, use the `operator` tool actions `agents_list`, `agents_create`, `agents_update`, `agents_delete` (same RPCs as CLI/UI). For per-agent workspace bootstrap files, use `agents_file_*` on `operator`.
 
 Auto-archive:
 

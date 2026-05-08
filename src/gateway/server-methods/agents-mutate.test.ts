@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => ({
   fsLstat: vi.fn(async (..._args: unknown[]) => null as import("node:fs").Stats | null),
   fsRealpath: vi.fn(async (p: string) => p),
   fsReadlink: vi.fn(async () => ""),
+  fsUnlink: vi.fn(async () => {}),
   fsOpen: vi.fn(async () => ({}) as unknown),
   writeFileWithinRoot: vi.fn(async () => {}),
 }));
@@ -122,6 +123,7 @@ vi.mock("node:fs/promises", async () => {
     lstat: mocks.fsLstat,
     realpath: mocks.fsRealpath,
     readlink: mocks.fsReadlink,
+    unlink: mocks.fsUnlink,
     open: mocks.fsOpen,
   };
   return { ...patched, default: patched };
@@ -156,16 +158,17 @@ beforeEach(() => {
 
 function makeCall(method: keyof typeof agentsHandlers, params: Record<string, unknown>) {
   const respond = vi.fn();
+  const broadcast = vi.fn();
   const handler = agentsHandlers[method];
   const promise = handler({
     params,
     respond,
-    context: {} as never,
+    context: { broadcast } as never,
     req: { type: "req" as const, id: "1", method },
     client: null,
     isWebchatConnect: () => false,
   });
-  return { respond, promise };
+  return { respond, promise, broadcast };
 }
 
 function createEnoentError() {
@@ -333,6 +336,7 @@ beforeEach(() => {
   mocks.fsReadFile.mockImplementation(async () => {
     throw createEnoentError();
   });
+  mocks.fsUnlink.mockResolvedValue(undefined);
   mocks.fsStat.mockImplementation(async () => {
     throw createEnoentError();
   });
@@ -364,7 +368,7 @@ describe("agents.create", () => {
   });
 
   it("creates a new agent successfully", async () => {
-    const { respond, promise } = makeCall("agents.create", {
+    const { respond, promise, broadcast } = makeCall("agents.create", {
       name: "Test Agent",
       workspace: "/home/user/agents/test",
     });
@@ -381,6 +385,11 @@ describe("agents.create", () => {
     );
     expect(mocks.ensureAgentWorkspace).toHaveBeenCalled();
     expect(mocks.writeConfigFile).toHaveBeenCalled();
+    expect(broadcast).toHaveBeenCalledWith(
+      "agents.changed",
+      expect.objectContaining({ reason: "create", agentId: "test-agent" }),
+      expect.objectContaining({ dropIfSlow: true }),
+    );
   });
 
   it("ensures workspace is set up before writing config", async () => {
@@ -597,7 +606,7 @@ describe("agents.update", () => {
   });
 
   it("updates an existing agent successfully", async () => {
-    const { respond, promise } = makeCall("agents.update", {
+    const { respond, promise, broadcast } = makeCall("agents.update", {
       agentId: "test-agent",
       name: "Updated Name",
     });
@@ -605,6 +614,11 @@ describe("agents.update", () => {
 
     expect(respond).toHaveBeenCalledWith(true, { ok: true, agentId: "test-agent" }, undefined);
     expect(mocks.writeConfigFile).toHaveBeenCalled();
+    expect(broadcast).toHaveBeenCalledWith(
+      "agents.changed",
+      expect.objectContaining({ reason: "update", agentId: "test-agent" }),
+      expect.objectContaining({ dropIfSlow: true }),
+    );
   });
 
   it("rejects updating a nonexistent agent", async () => {
@@ -945,7 +959,7 @@ describe("agents.delete", () => {
   });
 
   it("deletes an existing agent and trashes files by default", async () => {
-    const { respond, promise } = makeCall("agents.delete", {
+    const { respond, promise, broadcast } = makeCall("agents.delete", {
       agentId: "test-agent",
     });
     await promise;
@@ -958,6 +972,11 @@ describe("agents.delete", () => {
     expect(mocks.writeConfigFile).toHaveBeenCalled();
     // moveToTrashBestEffort calls fs.access then movePathToTrash for each dir
     expect(mocks.movePathToTrash).toHaveBeenCalled();
+    expect(broadcast).toHaveBeenCalledWith(
+      "agents.changed",
+      expect.objectContaining({ reason: "delete", agentId: "test-agent" }),
+      expect.objectContaining({ dropIfSlow: true }),
+    );
   });
 
   it("skips file deletion when deleteFiles is false", async () => {
@@ -1174,4 +1193,49 @@ describe("agents.files.get/set symlink safety", () => {
       }
     },
   );
+});
+
+describe("agents.files.delete", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.loadConfigReturn = {
+      agents: {
+        list: [{ id: "main", workspace: "/workspace/test-agent" }],
+      },
+    };
+  });
+
+  it("returns ok with missing=true when deleting an allowlisted file", async () => {
+    const workspace = "/workspace/test-agent";
+    const ioPath = `${workspace}/AGENTS.md`;
+    agentsTesting.setDepsForTests({
+      resolveAgentWorkspaceFilePath: async () => ({
+        kind: "ready",
+        requestPath: ioPath,
+        ioPath,
+        workspaceReal: workspace,
+      }),
+    });
+    mocks.fsUnlink.mockResolvedValue(undefined);
+    const { respond, promise } = makeCall("agents.files.delete" as keyof typeof agentsHandlers, {
+      agentId: "main",
+      name: "AGENTS.md",
+    });
+    await promise;
+    expect(mocks.fsUnlink).toHaveBeenCalledWith(ioPath);
+    expect(respond).toHaveBeenCalledWith(
+      true,
+      {
+        ok: true,
+        agentId: "main",
+        workspace: workspace,
+        file: {
+          name: "AGENTS.md",
+          path: ioPath,
+          missing: true,
+        },
+      },
+      undefined,
+    );
+  });
 });

@@ -86,6 +86,14 @@ function toExecApprovalsPayload(snapshot: ExecApprovalsSnapshot) {
   };
 }
 
+function readSnapshotHash(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+  const hash = (payload as { hash?: unknown }).hash;
+  return typeof hash === "string" && hash.trim() ? hash.trim() : null;
+}
+
 function resolveNodeIdOrRespond(nodeId: string, respond: RespondFn): string | null {
   const id = nodeId.trim();
   if (!id) {
@@ -104,7 +112,7 @@ export const execApprovalsHandlers: GatewayRequestHandlers = {
     const snapshot = readExecApprovalsSnapshot();
     respond(true, toExecApprovalsPayload(snapshot), undefined);
   },
-  "exec.approvals.set": ({ params, respond }) => {
+  "exec.approvals.set": ({ params, respond, context }) => {
     if (!assertValidParams(params, validateExecApprovalsSetParams, "exec.approvals.set", respond)) {
       return;
     }
@@ -127,6 +135,15 @@ export const execApprovalsHandlers: GatewayRequestHandlers = {
     saveExecApprovals(next);
     const nextSnapshot = readExecApprovalsSnapshot();
     respond(true, toExecApprovalsPayload(nextSnapshot), undefined);
+    context.broadcast(
+      "exec.approvals.changed",
+      {
+        target: "gateway",
+        hash: nextSnapshot.hash,
+        ts: Date.now(),
+      },
+      { dropIfSlow: true },
+    );
   },
   "exec.approvals.node.get": async ({ params, respond, context }) => {
     if (
@@ -188,6 +205,16 @@ export const execApprovalsHandlers: GatewayRequestHandlers = {
       }
       const payload = safeParseJson(res.payloadJSON ?? null);
       respond(true, payload, undefined);
+      context.broadcast(
+        "exec.approvals.changed",
+        {
+          target: "node",
+          nodeId: id,
+          hash: readSnapshotHash(payload),
+          ts: Date.now(),
+        },
+        { dropIfSlow: true },
+      );
     });
   },
 };

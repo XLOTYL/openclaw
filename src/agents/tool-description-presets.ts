@@ -6,8 +6,12 @@ export const SESSIONS_LIST_TOOL_DISPLAY_SUMMARY =
 export const SESSIONS_HISTORY_TOOL_DISPLAY_SUMMARY =
   "Read sanitized message history for a visible session.";
 export const SESSIONS_SEND_TOOL_DISPLAY_SUMMARY = "Send a message to another visible session.";
+export const SESSIONS_LIFECYCLE_TOOL_DISPLAY_SUMMARY =
+  "Delete and compact visible sessions, including checkpoint branch/restore.";
 export const SESSIONS_SPAWN_TOOL_DISPLAY_SUMMARY = "Spawn sub-agent or ACP sessions.";
 export const SESSION_STATUS_TOOL_DISPLAY_SUMMARY = "Show session status, usage, and model state.";
+export const OPERATOR_TOOL_DISPLAY_SUMMARY =
+  "Owner-only operator bridge: sessions, agent records (list/create/update/delete), workspace files, diagnostics, approvals, usage, logs, and skills.";
 export const UPDATE_PLAN_TOOL_DISPLAY_SUMMARY = "Track a short structured work plan.";
 
 export function describeSessionsListTool(): string {
@@ -31,6 +35,13 @@ export function describeSessionsSendTool(): string {
   ].join(" ");
 }
 
+export function describeSessionsLifecycleTool(): string {
+  return [
+    "Run session lifecycle operations for visible sessions, including delete and compaction actions.",
+    "Use this for session cleanup and compaction checkpoint workflows without raw gateway method calls.",
+  ].join(" ");
+}
+
 export function describeSessionsSpawnTool(): string {
   return [
     'Spawn an isolated session with `runtime="subagent"` or `runtime="acp"`.',
@@ -45,6 +56,13 @@ export function describeSessionStatusTool(): string {
     "Show a /status-equivalent session status card for the current or another visible session, including usage, time, cost when available, and linked background task context.",
     "Optional `model` sets a per-session model override; `model=default` resets overrides.",
     "Use this for questions like what model is active or how a session is configured.",
+  ].join(" ");
+}
+
+export function describeOperatorTool(): string {
+  return [
+    "Run a curated set of owner-only operator methods: session patch/reset/steer, chat abort, gateway agent list/create/update/delete (config entries), agent workspace file list/get/set/delete, diagnostics, approvals, usage, logs, and skills management.",
+    "Actions are allowlisted and validated; unknown actions are rejected before any gateway call.",
   ].join(" ");
 }
 

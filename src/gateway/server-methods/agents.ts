@@ -44,13 +44,28 @@ import {
   validateAgentsCreateParams,
   validateAgentsDeleteParams,
   validateAgentsFilesGetParams,
+  validateAgentsFilesDeleteParams,
   validateAgentsFilesListParams,
   validateAgentsFilesSetParams,
   validateAgentsListParams,
   validateAgentsUpdateParams,
 } from "../protocol/index.js";
 import { listAgentsForGateway } from "../session-utils.js";
-import type { GatewayRequestHandlers, RespondFn } from "./types.js";
+import type { GatewayRequestContext, GatewayRequestHandlers, RespondFn } from "./types.js";
+
+function emitAgentsChanged(
+  context: Pick<GatewayRequestContext, "broadcast">,
+  payload: { reason: string; agentId?: string; name?: string },
+) {
+  context.broadcast(
+    "agents.changed",
+    {
+      ...payload,
+      ts: Date.now(),
+    },
+    { dropIfSlow: true },
+  );
+}
 
 const BOOTSTRAP_FILE_NAMES = [
   DEFAULT_AGENTS_FILENAME,
@@ -613,7 +628,7 @@ export const agentsHandlers: GatewayRequestHandlers = {
     const result = listAgentsForGateway(cfg);
     respond(true, result, undefined);
   },
-  "agents.create": async ({ params, respond }) => {
+  "agents.create": async ({ params, respond, context }) => {
     if (!validateAgentsCreateParams(params)) {
       respond(
         false,
@@ -700,8 +715,9 @@ export const agentsHandlers: GatewayRequestHandlers = {
     await writeConfigFile(nextConfig);
 
     respond(true, { ok: true, agentId, name: safeName, workspace: workspaceDir, model }, undefined);
+    emitAgentsChanged(context, { reason: "create", agentId });
   },
-  "agents.update": async ({ params, respond }) => {
+  "agents.update": async ({ params, respond, context }) => {
     if (!validateAgentsUpdateParams(params)) {
       respondInvalidMethodParams(respond, "agents.update", validateAgentsUpdateParams.errors);
       return;
@@ -784,8 +800,9 @@ export const agentsHandlers: GatewayRequestHandlers = {
     await writeConfigFile(nextConfig);
 
     respond(true, { ok: true, agentId }, undefined);
+    emitAgentsChanged(context, { reason: "update", agentId });
   },
-  "agents.delete": async ({ params, respond }) => {
+  "agents.delete": async ({ params, respond, context }) => {
     if (!validateAgentsDeleteParams(params)) {
       respondInvalidMethodParams(respond, "agents.delete", validateAgentsDeleteParams.errors);
       return;
@@ -823,6 +840,7 @@ export const agentsHandlers: GatewayRequestHandlers = {
     }
 
     respond(true, { ok: true, agentId, removedBindings: result.removedBindings }, undefined);
+    emitAgentsChanged(context, { reason: "delete", agentId });
   },
   "agents.files.list": async ({ params, respond }) => {
     if (!validateAgentsFilesListParams(params)) {
@@ -905,7 +923,7 @@ export const agentsHandlers: GatewayRequestHandlers = {
       undefined,
     );
   },
-  "agents.files.set": async ({ params, respond }) => {
+  "agents.files.set": async ({ params, respond, context }) => {
     if (!validateAgentsFilesSetParams(params)) {
       respondInvalidMethodParams(respond, "agents.files.set", validateAgentsFilesSetParams.errors);
       return;
@@ -964,5 +982,55 @@ export const agentsHandlers: GatewayRequestHandlers = {
       },
       undefined,
     );
+    emitAgentsChanged(context, { reason: "files.set", agentId, name });
+  },
+  "agents.files.delete": async ({ params, respond, context }) => {
+    if (!validateAgentsFilesDeleteParams(params)) {
+      respondInvalidMethodParams(
+        respond,
+        "agents.files.delete",
+        validateAgentsFilesDeleteParams.errors,
+      );
+      return;
+    }
+    const resolved = resolveAgentWorkspaceFileOrRespondError(params, respond);
+    if (!resolved) {
+      return;
+    }
+    const { agentId, workspaceDir, name } = resolved;
+    const filePath = path.join(workspaceDir, name);
+    const resolvedPath = await resolveWorkspaceFilePathOrRespond({
+      respond,
+      workspaceDir,
+      name,
+    });
+    if (!resolvedPath) {
+      return;
+    }
+    if (resolvedPath.kind === "ready") {
+      try {
+        await fs.unlink(resolvedPath.ioPath);
+      } catch (err) {
+        if (!isNotFoundPathError(err)) {
+          respondWorkspaceFileUnsafe(respond, name);
+          return;
+        }
+      }
+    }
+    respond(
+      true,
+      {
+        ok: true,
+        agentId,
+        workspace: workspaceDir,
+        file: {
+          name,
+          path: filePath,
+          missing: true,
+        },
+      },
+      undefined,
+    );
+    emitAgentsChanged(context, { reason: "files.delete", agentId, name });
   },
 };

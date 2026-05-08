@@ -30,6 +30,11 @@ import {
   type ChatState,
 } from "./controllers/chat.ts";
 import { loadDevices, type DevicesState } from "./controllers/devices.ts";
+import {
+  loadExecApprovals,
+  type ExecApprovalsState,
+  type ExecApprovalsTarget,
+} from "./controllers/exec-approvals.ts";
 import type { ExecApprovalRequest } from "./controllers/exec-approval.ts";
 import {
   addExecApproval,
@@ -42,6 +47,8 @@ import {
 import { loadHealthState, type HealthState } from "./controllers/health.ts";
 import { loadNodes, type NodesState } from "./controllers/nodes.ts";
 import { loadSessions, subscribeSessions, type SessionsState } from "./controllers/sessions.ts";
+import { loadSkills, type SkillsState } from "./controllers/skills.ts";
+import { loadConfig, type ConfigState } from "./controllers/config.ts";
 import {
   resolveGatewayErrorDetailCode,
   type GatewayEventFrame,
@@ -113,6 +120,12 @@ type GatewayHostWithSideResults = GatewayHost & {
   chatSideResult?: ChatSideResult | null;
   chatSideResultTerminalRuns?: Set<string>;
 };
+
+type GatewayHostWithExecApprovalsSelection = GatewayHost &
+  ExecApprovalsState & {
+    execApprovalsTarget?: "gateway" | "node";
+    execApprovalsTargetNodeId?: string | null;
+  };
 
 function isTerminalChatState(
   state: ChatEventPayload["state"] | ReturnType<typeof handleChatEvent> | null | undefined,
@@ -393,6 +406,34 @@ function handleChatGatewayEvent(host: GatewayHost, payload: ChatEventPayload | u
   }
 }
 
+function resolveExecApprovalsReloadTarget(
+  host: GatewayHost,
+  payload: unknown,
+): ExecApprovalsTarget | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+  const changed = payload as { target?: unknown; nodeId?: unknown };
+  const state = host as GatewayHostWithExecApprovalsSelection;
+  if (changed.target === "node") {
+    const nodeId = typeof changed.nodeId === "string" ? changed.nodeId.trim() : "";
+    if (!nodeId || state.execApprovalsTarget !== "node") {
+      return null;
+    }
+    if (state.execApprovalsTargetNodeId?.trim() !== nodeId) {
+      return null;
+    }
+    return { kind: "node", nodeId };
+  }
+  if (changed.target === "gateway") {
+    if (state.execApprovalsTarget === "node") {
+      return null;
+    }
+    return { kind: "gateway" };
+  }
+  return null;
+}
+
 function handleGatewayEventUnsafe(host: GatewayHost, evt: GatewayEventFrame) {
   host.eventLogBuffer = [
     { ts: Date.now(), event: evt.event, payload: evt.payload },
@@ -460,12 +501,39 @@ function handleGatewayEventUnsafe(host: GatewayHost, evt: GatewayEventFrame) {
     return;
   }
 
+  if (evt.event === "agents.changed") {
+    void loadAgents(host as unknown as AgentsState);
+    return;
+  }
+
+  if (evt.event === "skills.changed") {
+    void loadSkills(host as unknown as SkillsState);
+    return;
+  }
+
+  if (evt.event === "config.changed") {
+    void loadConfig(host as unknown as ConfigState);
+    return;
+  }
+
   if (evt.event === "cron" && host.tab === "cron") {
     void loadCron(host as unknown as Parameters<typeof loadCron>[0]);
   }
 
-  if (evt.event === "device.pair.requested" || evt.event === "device.pair.resolved") {
+  if (
+    evt.event === "device.pair.requested" ||
+    evt.event === "device.pair.resolved" ||
+    evt.event === "devices.changed"
+  ) {
     void loadDevices(host as unknown as DevicesState, { quiet: true });
+  }
+
+  if (evt.event === "exec.approvals.changed") {
+    const target = resolveExecApprovalsReloadTarget(host, evt.payload);
+    if (target) {
+      void loadExecApprovals(host as unknown as ExecApprovalsState, target);
+    }
+    return;
   }
 
   if (evt.event === "exec.approval.requested") {

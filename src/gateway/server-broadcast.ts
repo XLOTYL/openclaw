@@ -22,6 +22,8 @@ const EVENT_SCOPE_GUARDS: Record<string, string[]> = {
   "plugin.approval.resolved": [APPROVALS_SCOPE],
   "device.pair.requested": [PAIRING_SCOPE],
   "device.pair.resolved": [PAIRING_SCOPE],
+  "devices.changed": [PAIRING_SCOPE],
+  "exec.approvals.changed": [APPROVALS_SCOPE],
   "node.pair.requested": [PAIRING_SCOPE],
   "node.pair.resolved": [PAIRING_SCOPE],
   "sessions.changed": [READ_SCOPE],

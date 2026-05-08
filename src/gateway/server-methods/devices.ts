@@ -247,6 +247,15 @@ export const deviceHandlers: GatewayRequestHandlers = {
       return;
     }
     context.logGateway.info(`device pairing removed device=${removed.deviceId}`);
+    context.broadcast(
+      "devices.changed",
+      {
+        deviceId: removed.deviceId,
+        kind: "removed",
+        ts: Date.now(),
+      },
+      { dropIfSlow: true },
+    );
     respond(true, removed, undefined);
     queueMicrotask(() => {
       context.disconnectClientsForDevice?.(removed.deviceId);
@@ -342,6 +351,16 @@ export const deviceHandlers: GatewayRequestHandlers = {
     context.logGateway.info(
       `device token rotated device=${deviceId} role=${entry.role} scopes=${entry.scopes.join(",")}`,
     );
+    context.broadcast(
+      "devices.changed",
+      {
+        deviceId: deviceId.trim(),
+        kind: "token_rotated",
+        role: entry.role,
+        ts: Date.now(),
+      },
+      { dropIfSlow: true },
+    );
     respond(
       true,
       {
@@ -391,6 +410,16 @@ export const deviceHandlers: GatewayRequestHandlers = {
     }
     const normalizedDeviceId = deviceId.trim();
     context.logGateway.info(`device token revoked device=${normalizedDeviceId} role=${entry.role}`);
+    context.broadcast(
+      "devices.changed",
+      {
+        deviceId: normalizedDeviceId,
+        kind: "token_revoked",
+        role: entry.role,
+        ts: Date.now(),
+      },
+      { dropIfSlow: true },
+    );
     respond(
       true,
       {

@@ -178,6 +178,24 @@ export const AgentsFilesSetResultSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const AgentsFilesDeleteParamsSchema = Type.Object(
+  {
+    agentId: NonEmptyString,
+    name: NonEmptyString,
+  },
+  { additionalProperties: false },
+);
+
+export const AgentsFilesDeleteResultSchema = Type.Object(
+  {
+    ok: Type.Literal(true),
+    agentId: NonEmptyString,
+    workspace: NonEmptyString,
+    file: AgentsFileEntrySchema,
+  },
+  { additionalProperties: false },
+);
+
 export const ModelsListParamsSchema = Type.Object({}, { additionalProperties: false });
 
 export const ModelsListResultSchema = Type.Object(

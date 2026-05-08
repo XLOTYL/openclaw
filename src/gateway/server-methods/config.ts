@@ -58,6 +58,20 @@ import { assertValidParams } from "./validation.js";
 
 const MAX_CONFIG_ISSUES_IN_ERROR_MESSAGE = 3;
 
+function emitConfigChanged(
+  context: Pick<GatewayRequestContext, "broadcast">,
+  payload: { reason: string; changedPaths?: string[]; noop?: boolean },
+) {
+  context.broadcast(
+    "config.changed",
+    {
+      ...payload,
+      ts: Date.now(),
+    },
+    { dropIfSlow: true },
+  );
+}
+
 type ConfigOpenCommand = {
   command: string;
   args: string[];
@@ -466,6 +480,7 @@ export const configHandlers: GatewayRequestHandlers = {
       },
       undefined,
     );
+    emitConfigChanged(context, { reason: "set" });
     queueSharedGatewayAuthGenerationRefresh(true, parsed.config, context);
   },
   "config.patch": async ({ params, respond, client, context }) => {
@@ -623,6 +638,7 @@ export const configHandlers: GatewayRequestHandlers = {
       },
       undefined,
     );
+    emitConfigChanged(context, { reason: "patch", changedPaths });
     queueSharedGatewayAuthGenerationRefresh(true, validated.config, context);
     queueSharedGatewayAuthDisconnect(disconnectSharedAuthClients, context);
   },
@@ -696,6 +712,7 @@ export const configHandlers: GatewayRequestHandlers = {
       },
       undefined,
     );
+    emitConfigChanged(context, { reason: "apply", changedPaths });
     queueSharedGatewayAuthGenerationRefresh(true, parsed.config, context);
     queueSharedGatewayAuthDisconnect(disconnectSharedAuthClients, context);
   },

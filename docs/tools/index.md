@@ -64,12 +64,12 @@ These tools ship with OpenClaw and are available without installing any plugins:
 | `message`                                  | Send messages across all channels                                     | [Agent Send](/tools/agent-send)             |
 | `canvas`                                   | Drive node Canvas (present, eval, snapshot)                           |                                             |
 | `nodes`                                    | Discover and target paired devices                                    |                                             |
-| `cron` / `gateway`                         | Manage scheduled jobs; inspect, patch, restart, or update the gateway |                                             |
+| `cron` / `gateway` / `operator`            | Manage scheduled jobs and owner-only operator control-plane actions     |                                             |
 | `image` / `image_generate`                 | Analyze or generate images                                            | [Image Generation](/tools/image-generation) |
 | `music_generate`                           | Generate music tracks                                                 | [Music Generation](/tools/music-generation) |
 | `video_generate`                           | Generate videos                                                       | [Video Generation](/tools/video-generation) |
 | `tts`                                      | One-shot text-to-speech conversion                                    | [TTS](/tools/tts)                           |
-| `sessions_*` / `subagents` / `agents_list` | Session management, status, and sub-agent orchestration               | [Sub-agents](/tools/subagents)              |
+| `sessions_*` / `subagents` / `agents_list` | Session management, lifecycle, status, and sub-agent orchestration    | [Sub-agents](/tools/subagents)              |
 | `session_status`                           | Lightweight `/status`-style readback and session model override       | [Session Tools](/concepts/session-tool)     |
 
 For image work, use `image` for analysis and `image_generate` for generation or editing. If you target `openai/*`, `google/*`, `fal/*`, or another non-default image provider, configure that provider's auth/API key first.
@@ -99,6 +99,18 @@ For partial changes, prefer `config.schema.lookup` then `config.patch`. Use
 `config.apply` only when you intentionally replace the entire config.
 The tool also refuses to change `tools.exec.ask` or `tools.exec.security`;
 legacy `tools.bash.*` aliases normalize to the same protected exec paths.
+
+`operator` is a separate owner-only allowlisted bridge for diagnostics and
+control-plane RPCs, including session metadata (`sessions_patch`, `sessions_reset`,
+`sessions_steer`), run abort (`chat_abort`), gateway agent record CRUD (`agents_list`,
+`agents_create`, `agents_update`, `agents_delete` — same RPCs as `agents.list` / `agents.create` /
+`agents.update` / `agents.delete`), agent bootstrap file CRUD (`agents_file_list`,
+`agents_file_get`, `agents_file_set`, `agents_file_delete`), usage/logs, approvals, and skills
+install/update. The standalone `agents_list` tool is different: it lists agent ids allowed for
+`sessions_spawn` from allowlists, not the full configured roster. Maintainer drift checks:
+[`docs/reference/gateway-agent-tool-parity.json`](/reference/gateway-agent-tool-parity.json).
+It does **not** implement `skills.remove`; disable skills via `skills_update` / gateway
+`skills.update` (`enabled: false`) until a dedicated uninstall flow exists.
 
 ### Plugin-provided tools
 
@@ -146,11 +158,11 @@ Use `group:*` shorthands in allow/deny lists:
 | ------------------ | --------------------------------------------------------------------------------------------------------- |
 | `group:runtime`    | exec, process, code_execution (`bash` is accepted as an alias for `exec`)                                 |
 | `group:fs`         | read, write, edit, apply_patch                                                                            |
-| `group:sessions`   | sessions_list, sessions_history, sessions_send, sessions_spawn, sessions_yield, subagents, session_status |
-| `group:memory`     | memory_search, memory_get                                                                                 |
+| `group:sessions`   | sessions_list, sessions_history, sessions_send, sessions_spawn, sessions_yield, subagents, session_status, sessions_lifecycle |
+| `group:memory`     | memory_search, memory_get, memory_write, memory_update, memory_delete |
 | `group:web`        | web_search, x_search, web_fetch                                                                           |
 | `group:ui`         | browser, canvas                                                                                           |
-| `group:automation` | cron, gateway                                                                                             |
+| `group:automation` | cron, gateway, operator                                                                                   |
 | `group:messaging`  | message                                                                                                   |
 | `group:nodes`      | nodes                                                                                                     |
 | `group:agents`     | agents_list                                                                                               |

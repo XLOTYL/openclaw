@@ -48,6 +48,7 @@ function createOptions(
     isWebchatConnect: () => false,
     respond: vi.fn(),
     context: {
+      broadcast: vi.fn(),
       disconnectClientsForDevice: vi.fn(),
       logGateway: {
         debug: vi.fn(),
@@ -103,6 +104,15 @@ describe("deviceHandlers", () => {
     await Promise.resolve();
 
     expect(removePairedDeviceMock).toHaveBeenCalledWith(" device-1 ");
+    expect(opts.context.broadcast).toHaveBeenCalledWith(
+      "devices.changed",
+      {
+        deviceId: "device-1",
+        kind: "removed",
+        ts: expect.any(Number),
+      },
+      { dropIfSlow: true },
+    );
     expect(opts.context.disconnectClientsForDevice).toHaveBeenCalledWith("device-1");
     expect(opts.respond).toHaveBeenCalledWith(
       true,
@@ -118,6 +128,7 @@ describe("deviceHandlers", () => {
     await deviceHandlers["device.pair.remove"](opts);
 
     expect(opts.context.disconnectClientsForDevice).not.toHaveBeenCalled();
+    expect(opts.context.broadcast).not.toHaveBeenCalled();
     expect(opts.respond).toHaveBeenCalledWith(
       false,
       undefined,
@@ -135,6 +146,7 @@ describe("deviceHandlers", () => {
     await deviceHandlers["device.pair.remove"](opts);
 
     expect(removePairedDeviceMock).not.toHaveBeenCalled();
+    expect(opts.context.broadcast).not.toHaveBeenCalled();
     expect(opts.respond).toHaveBeenCalledWith(
       false,
       undefined,
@@ -181,6 +193,16 @@ describe("deviceHandlers", () => {
       true,
       { deviceId: "device-1", role: "operator", revokedAtMs: 456 },
       undefined,
+    );
+    expect(opts.context.broadcast).toHaveBeenCalledWith(
+      "devices.changed",
+      {
+        deviceId: "device-1",
+        kind: "token_revoked",
+        role: "operator",
+        ts: expect.any(Number),
+      },
+      { dropIfSlow: true },
     );
   });
 
@@ -267,6 +289,19 @@ describe("deviceHandlers", () => {
       },
       undefined,
     );
+    expect(opts.context.broadcast).toHaveBeenCalledWith(
+      "devices.changed",
+      {
+        deviceId: "device-1",
+        kind: "token_rotated",
+        role: "operator",
+        ts: expect.any(Number),
+      },
+      { dropIfSlow: true },
+    );
+    expect(JSON.stringify(vi.mocked(opts.context.broadcast).mock.calls)).not.toContain(
+      "new-token",
+    );
   });
 
   it("treats normalized device ids as self-owned for token rotation", async () => {
@@ -323,6 +358,7 @@ describe("deviceHandlers", () => {
 
     expect(rotateDeviceTokenMock).not.toHaveBeenCalled();
     expect(opts.context.disconnectClientsForDevice).not.toHaveBeenCalled();
+    expect(opts.context.broadcast).not.toHaveBeenCalled();
     expect(opts.respond).toHaveBeenCalledWith(
       false,
       undefined,
@@ -340,6 +376,7 @@ describe("deviceHandlers", () => {
     await deviceHandlers["device.token.revoke"](opts);
 
     expect(opts.context.disconnectClientsForDevice).not.toHaveBeenCalled();
+    expect(opts.context.broadcast).not.toHaveBeenCalled();
     expect(opts.respond).toHaveBeenCalledWith(
       false,
       undefined,

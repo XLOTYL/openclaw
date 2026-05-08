@@ -6,6 +6,7 @@ import { createDefaultDeps } from "../cli/deps.js";
 import { agentCommandFromIngress } from "../commands/agent.js";
 import type { GatewayHttpChatCompletionsConfig } from "../config/types.gateway.js";
 import { emitAgentEvent, onAgentEvent } from "../infra/agent-events.js";
+import { incrementOpenclawSecurityBlockTotal } from "../infra/metrics.js";
 import { logWarn } from "../logger.js";
 import { estimateBase64DecodedBytes } from "../media/base64.js";
 import {
@@ -369,11 +370,13 @@ async function resolveImagesForRequest(
 export const __testOnlyOpenAiHttp = {
   resolveImagesForRequest,
   resolveOpenAiChatCompletionsLimits,
+  buildAgentPrompt,
 };
 
 function buildAgentPrompt(
   messagesUnknown: unknown,
   activeUserMessageIndex: number,
+  opts?: { allowSystemMessages?: boolean },
 ): {
   message: string;
   extraSystemPrompt?: string;
@@ -382,6 +385,7 @@ function buildAgentPrompt(
 
   const systemParts: string[] = [];
   const conversationEntries: ConversationEntry[] = [];
+  const allowSystemMessages = opts?.allowSystemMessages === true
 
   for (const [i, msg] of messages.entries()) {
     if (!msg || typeof msg !== "object") {
@@ -394,6 +398,9 @@ function buildAgentPrompt(
       continue;
     }
     if (role === "system" || role === "developer") {
+      if (!allowSystemMessages) {
+        throw new Error("openai_compat_system_messages_not_allowed")
+      }
       if (content) {
         systemParts.push(content);
       }
@@ -550,7 +557,25 @@ export async function handleOpenAiHttpRequest(
     return true;
   }
   const activeTurnContext = resolveActiveTurnContext(payload.messages);
-  const prompt = buildAgentPrompt(payload.messages, activeTurnContext.activeUserMessageIndex);
+  let prompt: { message: string; extraSystemPrompt?: string }
+  try {
+    prompt = buildAgentPrompt(payload.messages, activeTurnContext.activeUserMessageIndex, {
+      allowSystemMessages: senderIsOwner,
+    })
+  } catch (err) {
+    if (String(err).includes("openai_compat_system_messages_not_allowed")) {
+      incrementOpenclawSecurityBlockTotal("openai_compat", "system_messages_blocked");
+      sendJson(res, 400, {
+        error: {
+          message:
+            "OpenAI-compatible system/developer messages require trusted operator authentication.",
+          type: "invalid_request_error",
+        },
+      })
+      return true
+    }
+    throw err
+  }
   let images: ImageContent[] = [];
   try {
     images = await resolveImagesForRequest(activeTurnContext, limits);

@@ -233,6 +233,53 @@ describe("gateway broadcaster", () => {
     expect(approvalsSocket.send).toHaveBeenCalledTimes(1);
     expect(pairingSocket.send).toHaveBeenCalledTimes(1);
   });
+
+  it("routes devices.changed and exec.approvals.changed through matching operator scopes", () => {
+    const approvalsSocket: TestSocket = {
+      bufferedAmount: 0,
+      send: vi.fn(),
+      close: vi.fn(),
+    };
+    const pairingSocket: TestSocket = {
+      bufferedAmount: 0,
+      send: vi.fn(),
+      close: vi.fn(),
+    };
+    const readSocket: TestSocket = {
+      bufferedAmount: 0,
+      send: vi.fn(),
+      close: vi.fn(),
+    };
+
+    const clients = new Set<GatewayWsClient>([
+      {
+        socket: approvalsSocket as unknown as GatewayWsClient["socket"],
+        connect: { role: "operator", scopes: ["operator.approvals"] } as GatewayWsClient["connect"],
+        connId: "c-approvals",
+        usesSharedGatewayAuth: false,
+      },
+      {
+        socket: pairingSocket as unknown as GatewayWsClient["socket"],
+        connect: { role: "operator", scopes: ["operator.pairing"] } as GatewayWsClient["connect"],
+        connId: "c-pairing",
+        usesSharedGatewayAuth: false,
+      },
+      {
+        socket: readSocket as unknown as GatewayWsClient["socket"],
+        connect: { role: "operator", scopes: ["operator.read"] } as GatewayWsClient["connect"],
+        connId: "c-read",
+        usesSharedGatewayAuth: false,
+      },
+    ]);
+    const { broadcast } = createGatewayBroadcaster({ clients });
+
+    broadcast("devices.changed", { deviceId: "device-1", kind: "removed" });
+    broadcast("exec.approvals.changed", { target: "gateway", hash: "h1" });
+
+    expect(pairingSocket.send).toHaveBeenCalledTimes(1);
+    expect(approvalsSocket.send).toHaveBeenCalledTimes(1);
+    expect(readSocket.send).not.toHaveBeenCalled();
+  });
 });
 
 describe("chat run registry", () => {

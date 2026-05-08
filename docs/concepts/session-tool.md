@@ -23,6 +23,12 @@ orchestrate sub-agents.
 | `sessions_yield`   | End the current turn and wait for follow-up sub-agent results               |
 | `subagents`        | List, steer, or kill spawned sub-agents for this session                    |
 | `session_status`   | Show a `/status`-style card and optionally set a per-session model override |
+| `sessions_lifecycle` | Owner-only delete + compaction lifecycle actions (compact/list/get/branch/restore) |
+
+The owner-only **`operator`** tool also bridges gateway session/chat control for
+operators who need it in-tool: `sessions.patch`, `sessions.reset`, `sessions.steer`,
+and `chat.abort` (see tool docs). Prefer `sessions_*` / `sessions_lifecycle` for
+typical workflows; use `operator` when you need those RPCs without raw gateway calls.
 
 ## Listing and reading sessions
 
@@ -92,6 +98,14 @@ sub-agents. It supports:
 - `action: "list"` to inspect active/recent runs
 - `action: "steer"` to send follow-up guidance to a running child
 - `action: "kill"` to stop one child or `all`
+
+`sessions_lifecycle` is the owner-only maintenance helper for explicit
+session lifecycle operations. It supports:
+
+- `action: "delete"` for session deletion (with optional transcript deletion)
+- `action: "compact"` for manual compaction
+- `action: "compaction_list"` / `"compaction_get"` to inspect checkpoints
+- `action: "compaction_branch"` / `"compaction_restore"` for checkpoint branching and restore
 
 ## Spawning sub-agents
 

@@ -22,6 +22,9 @@ const NODES_TOOL_ACTIONS = [
   "pending",
   "approve",
   "reject",
+  "pair_request",
+  "rename",
+  "unpair",
   "notify",
   "camera_snap",
   "camera_list",
@@ -95,7 +98,19 @@ const NodesToolSchema = Type.Object({
   gatewayToken: Type.Optional(Type.String()),
   timeoutMs: Type.Optional(Type.Number()),
   node: Type.Optional(Type.String()),
+  nodeId: Type.Optional(Type.String()),
   requestId: Type.Optional(Type.String()),
+  displayName: Type.Optional(Type.String()),
+  platform: Type.Optional(Type.String()),
+  version: Type.Optional(Type.String()),
+  coreVersion: Type.Optional(Type.String()),
+  uiVersion: Type.Optional(Type.String()),
+  deviceFamily: Type.Optional(Type.String()),
+  modelIdentifier: Type.Optional(Type.String()),
+  caps: Type.Optional(Type.Array(Type.String())),
+  commands: Type.Optional(Type.Array(Type.String())),
+  remoteIp: Type.Optional(Type.String()),
+  silent: Type.Optional(Type.Boolean()),
   // notify
   title: Type.Optional(Type.String()),
   body: Type.Optional(Type.String()),
@@ -152,7 +167,7 @@ export function createNodesTool(options?: {
     name: "nodes",
     ownerOnly: isOpenClawOwnerOnlyCoreToolName("nodes"),
     description:
-      "Discover and control paired nodes (status/describe/pairing/notify/camera/photos/screen/location/notifications/invoke).",
+      "Discover and control paired nodes (status/describe/pairing/pair_request/rename/unpair/notify/camera/photos/screen/location/notifications/invoke).",
     parameters: NodesToolSchema,
     execute: async (_toolCallId, args) => {
       const params = args as Record<string, unknown>;
@@ -193,6 +208,70 @@ export function createNodesTool(options?: {
             return jsonResult(
               await callGatewayTool("node.pair.reject", gatewayOpts, {
                 requestId,
+              }),
+            );
+          }
+          case "pair_request": {
+            const nodeIdDirect = readStringParam(params, "nodeId");
+            const nodeLabel = readStringParam(params, "node");
+            const nodeId =
+              nodeIdDirect?.trim() ||
+              (nodeLabel?.trim()
+                ? await resolveNodeId(gatewayOpts, nodeLabel)
+                : undefined);
+            if (!nodeId?.trim()) {
+              throw new Error("nodeId or node required");
+            }
+            const caps = Array.isArray(params.caps)
+              ? params.caps.filter((c): c is string => typeof c === "string" && c.trim().length > 0)
+              : undefined;
+            const commands = Array.isArray(params.commands)
+              ? params.commands.filter((c): c is string => typeof c === "string" && c.trim().length > 0)
+              : undefined;
+            return jsonResult(
+              await callGatewayTool(
+                "node.pair.request",
+                gatewayOpts,
+                {
+                  nodeId: nodeId.trim(),
+                  displayName: readStringParam(params, "displayName") ?? undefined,
+                  platform: readStringParam(params, "platform") ?? undefined,
+                  version: readStringParam(params, "version") ?? undefined,
+                  coreVersion: readStringParam(params, "coreVersion") ?? undefined,
+                  uiVersion: readStringParam(params, "uiVersion") ?? undefined,
+                  deviceFamily: readStringParam(params, "deviceFamily") ?? undefined,
+                  modelIdentifier: readStringParam(params, "modelIdentifier") ?? undefined,
+                  caps,
+                  commands,
+                  remoteIp: readStringParam(params, "remoteIp") ?? undefined,
+                  silent: typeof params.silent === "boolean" ? params.silent : undefined,
+                },
+                { scopes: ["operator.pairing"] },
+              ),
+            );
+          }
+          case "rename": {
+            const node = readStringParam(params, "node", { required: true });
+            const displayName = readStringParam(params, "displayName", { required: true });
+            const resolvedId = await resolveNodeId(gatewayOpts, node);
+            return jsonResult(
+              await callGatewayTool(
+                "node.rename",
+                gatewayOpts,
+                {
+                  nodeId: resolvedId,
+                  displayName,
+                },
+                { scopes: ["operator.pairing"] },
+              ),
+            );
+          }
+          case "unpair": {
+            const node = readStringParam(params, "node", { required: true });
+            const deviceId = await resolveNodeId(gatewayOpts, node);
+            return jsonResult(
+              await callGatewayTool("device.pair.remove", gatewayOpts, {
+                deviceId,
               }),
             );
           }

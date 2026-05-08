@@ -19,6 +19,7 @@ let enabledServer: Awaited<ReturnType<typeof startServer>>;
 let enabledPort: number;
 let openResponsesTesting: {
   resetResponseSessionState(): void;
+  resetOpenclawMetrics(): void;
   storeResponseSessionAt(
     responseId: string,
     sessionKey: string,
@@ -54,6 +55,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   openResponsesTesting.resetResponseSessionState();
+  openResponsesTesting.resetOpenclawMetrics();
 });
 
 async function startServer(port: number, opts?: { openResponsesEnabled?: boolean }) {
@@ -365,13 +367,11 @@ describe("OpenResponses HTTP API (e2e)", () => {
           { type: "message", role: "user", content: "Hello" },
         ],
       });
-      expect(resSystemDeveloper.status).toBe(200);
-      const optsSystemDeveloper = (agentCommand.mock.calls[0] as unknown[] | undefined)?.[0];
-      const extraSystemPrompt =
-        (optsSystemDeveloper as { extraSystemPrompt?: string } | undefined)?.extraSystemPrompt ??
-        "";
-      expect(extraSystemPrompt).toContain("You are a helpful assistant.");
-      expect(extraSystemPrompt).toContain("Be concise.");
+      await expectInvalidRequest(
+        resSystemDeveloper,
+        /OpenResponses system\/developer messages require trusted operator authentication/,
+      );
+      expect(agentCommand).toHaveBeenCalledTimes(0);
       await ensureResponseConsumed(resSystemDeveloper);
 
       mockAgentOnce([{ text: "hello" }]);
@@ -384,14 +384,17 @@ describe("OpenResponses HTTP API (e2e)", () => {
       const optsInstructions = (agentCommand.mock.calls[0] as unknown[] | undefined)?.[0];
       const instructionPrompt =
         (optsInstructions as { extraSystemPrompt?: string } | undefined)?.extraSystemPrompt ?? "";
-      expect(instructionPrompt).toContain("Always respond in French.");
+      expect(instructionPrompt).not.toContain("Always respond in French.");
+      const instructionMessage =
+        (optsInstructions as { message?: string } | undefined)?.message ?? "";
+      expect(instructionMessage).toContain("Always respond in French.");
+      expect(instructionMessage).toContain("EXTERNAL_UNTRUSTED_CONTENT");
       await ensureResponseConsumed(resInstructions);
 
       mockAgentOnce([{ text: "I am Claude" }]);
       const resHistory = await postResponses(port, {
         model: "openclaw",
         input: [
-          { type: "message", role: "system", content: "You are a helpful assistant." },
           { type: "message", role: "user", content: "Hello, who are you?" },
           { type: "message", role: "assistant", content: "I am Claude." },
           { type: "message", role: "user", content: "What did I just ask you?" },
@@ -647,6 +650,67 @@ describe("OpenResponses HTTP API (e2e)", () => {
       await ensureResponseConsumed(resNoUser);
     } finally {
       // shared server
+    }
+  });
+
+  it("exposes /metrics with OpenResponses security counters", async () => {
+    const port = enabledPort;
+    openResponsesTesting.resetOpenclawMetrics();
+    const resBlock = await postResponses(port, {
+      model: "openclaw",
+      input: [
+        { type: "message", role: "system", content: "x" },
+        { type: "message", role: "user", content: "y" },
+      ],
+    });
+    expect(resBlock.status).toBe(400);
+    await ensureResponseConsumed(resBlock);
+
+    const metricsRes = await fetch(`http://127.0.0.1:${port}/metrics`);
+    expect(metricsRes.status).toBe(200);
+    const body = await metricsRes.text();
+    expect(body).toContain("openclaw_security_block_total");
+    expect(body).toContain('surface="openresponses"');
+    expect(body).toContain("system_messages_blocked");
+  });
+
+  it("allows system/developer OpenResponses lanes for bearer owner callers", async () => {
+    const port = await getFreePort();
+    const server = await startTokenServer(port);
+    try {
+      agentCommand.mockClear();
+      agentCommand.mockResolvedValueOnce({ payloads: [{ text: "ok" }] } as never);
+
+      const res = await fetch(`http://127.0.0.1:${port}/v1/responses`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "content-type": "application/json",
+          "x-openclaw-scopes": "operator.write",
+        },
+        body: JSON.stringify({
+          model: "openclaw",
+          input: [
+            { type: "message", role: "system", content: "SYS" },
+            { type: "message", role: "developer", content: "DEV" },
+            { type: "message", role: "user", content: "hi" },
+          ],
+          instructions: "INST",
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const opts = (agentCommand.mock.calls[0] as unknown[] | undefined)?.[0] as {
+        extraSystemPrompt?: string;
+        message?: string;
+      };
+      expect(opts?.extraSystemPrompt ?? "").toContain("SYS");
+      expect(opts?.extraSystemPrompt ?? "").toContain("DEV");
+      expect(opts?.extraSystemPrompt ?? "").not.toContain("INST");
+      expect(opts?.message ?? "").toContain("INST");
+      await ensureResponseConsumed(res);
+    } finally {
+      await server.close({ reason: "openresponses bearer owner system lanes test done" });
     }
   });
 

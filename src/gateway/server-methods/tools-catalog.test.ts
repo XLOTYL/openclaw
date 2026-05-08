@@ -91,6 +91,14 @@ describe("tools.catalog handler", () => {
     expect(payload?.groups.some((group) => group.source === "plugin")).toBe(false);
     const media = payload?.groups.find((group) => group.id === "media");
     expect(media?.tools.some((tool) => tool.id === "tts" && tool.source === "core")).toBe(true);
+    const sessions = payload?.groups.find((group) => group.id === "sessions");
+    expect(
+      sessions?.tools.some((tool) => tool.id === "sessions_lifecycle" && tool.source === "core"),
+    ).toBe(true);
+    const automation = payload?.groups.find((group) => group.id === "automation");
+    expect(
+      automation?.tools.some((tool) => tool.id === "operator" && tool.source === "core"),
+    ).toBe(true);
   });
 
   it("includes plugin groups with plugin metadata", async () => {

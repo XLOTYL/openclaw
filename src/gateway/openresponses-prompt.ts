@@ -1,3 +1,12 @@
+/**
+ * Build agent ingress fields from an OpenResponses `input` payload.
+ *
+ * Security contract (gateway-enforced in `openresponses-http.ts`):
+ * - `system` / `developer` roles are only folded into `extraSystemPrompt` when
+ *   `allowSystemMessages === true` (trusted operator / owner sender).
+ * - Otherwise callers must not receive a privileged system lane via untrusted
+ *   HTTP; `buildAgentPrompt` throws `openai_compat_system_messages_not_allowed`.
+ */
 import {
   buildAgentMessageFromConversationEntries,
   type ConversationEntry,
@@ -22,7 +31,10 @@ function extractTextContent(content: string | ContentPart[]): string {
     .join("\n");
 }
 
-export function buildAgentPrompt(input: string | ItemParam[]): {
+export function buildAgentPrompt(
+  input: string | ItemParam[],
+  opts?: { allowSystemMessages?: boolean },
+): {
   message: string;
   extraSystemPrompt?: string;
 } {
@@ -32,6 +44,7 @@ export function buildAgentPrompt(input: string | ItemParam[]): {
 
   const systemParts: string[] = [];
   const conversationEntries: ConversationEntry[] = [];
+  const allowSystemMessages = opts?.allowSystemMessages === true;
 
   for (const item of input) {
     if (item.type === "message") {
@@ -41,6 +54,9 @@ export function buildAgentPrompt(input: string | ItemParam[]): {
       }
 
       if (item.role === "system" || item.role === "developer") {
+        if (!allowSystemMessages) {
+          throw new Error("openai_compat_system_messages_not_allowed");
+        }
         systemParts.push(content);
         continue;
       }

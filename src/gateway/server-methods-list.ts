@@ -1,6 +1,9 @@
 import { listChannelPlugins } from "../channels/plugins/index.js";
 import { GATEWAY_EVENT_UPDATE_AVAILABLE } from "./events.js";
 
+/** Core handler methods omitted from discovery (e.g. `connect` is only valid as the first frame). */
+export const CORE_GATEWAY_METHODS_EXCLUDED_FROM_DISCOVERY = ["connect"] as const;
+
 const BASE_METHODS = [
   "health",
   "doctor.memory.status",
@@ -26,6 +29,7 @@ const BASE_METHODS = [
   "config.set",
   "config.apply",
   "config.patch",
+  "config.openFile",
   "config.schema",
   "config.schema.lookup",
   "exec.approvals.get",
@@ -59,6 +63,7 @@ const BASE_METHODS = [
   "agents.files.list",
   "agents.files.get",
   "agents.files.set",
+  "agents.files.delete",
   "skills.status",
   "skills.search",
   "skills.detail",
@@ -76,17 +81,23 @@ const BASE_METHODS = [
   "sessions.messages.subscribe",
   "sessions.messages.unsubscribe",
   "sessions.preview",
+  "sessions.get",
+  "sessions.resolve",
   "sessions.compaction.list",
   "sessions.compaction.get",
   "sessions.compaction.branch",
   "sessions.compaction.restore",
   "sessions.create",
   "sessions.send",
+  "sessions.steer",
   "sessions.abort",
   "sessions.patch",
   "sessions.reset",
   "sessions.delete",
   "sessions.compact",
+  "sessions.usage",
+  "sessions.usage.timeseries",
+  "sessions.usage.logs",
   "last-heartbeat",
   "set-heartbeats",
   "wake",
@@ -124,6 +135,7 @@ const BASE_METHODS = [
   "system-event",
   "message.action",
   "send",
+  "poll",
   "agent",
   "agent.identity.get",
   "agent.wait",
@@ -131,6 +143,10 @@ const BASE_METHODS = [
   "chat.history",
   "chat.abort",
   "chat.send",
+  "chat.inject",
+  "web.login.start",
+  "web.login.wait",
+  "push.test",
 ];
 
 export function listGatewayMethods(): string[] {
@@ -145,6 +161,9 @@ export const GATEWAY_EVENTS = [
   "session.message",
   "session.tool",
   "sessions.changed",
+  "agents.changed",
+  "skills.changed",
+  "config.changed",
   "presence",
   "tick",
   "talk.mode",
@@ -157,7 +176,9 @@ export const GATEWAY_EVENTS = [
   "node.invoke.request",
   "device.pair.requested",
   "device.pair.resolved",
+  "devices.changed",
   "voicewake.changed",
+  "exec.approvals.changed",
   "exec.approval.requested",
   "exec.approval.resolved",
   "plugin.approval.requested",

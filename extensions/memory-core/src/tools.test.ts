@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   resetMemoryToolMockState,
+  setMemoryDeleteFileImpl,
   setMemoryBackend,
+  setMemoryUpdateFileImpl,
+  setMemoryWriteFileImpl,
   setMemorySearchImpl,
 } from "./memory-tool-manager-mock.js";
 import {
+  createMemoryDeleteToolOrThrow,
   createMemorySearchToolOrThrow,
+  createMemoryUpdateToolOrThrow,
+  createMemoryWriteToolOrThrow,
   expectUnavailableMemorySearchDetails,
 } from "./tools.test-helpers.js";
 
@@ -102,5 +108,60 @@ describe("memory_search unavailable payloads", () => {
     expect((result.details as { debug?: { searchMs?: number } }).debug?.searchMs).toEqual(
       expect.any(Number),
     );
+  });
+});
+
+describe("memory mutation tools", () => {
+  beforeEach(() => {
+    resetMemoryToolMockState({ searchImpl: async () => [] });
+  });
+
+  it("memory_write returns path and bytes", async () => {
+    setMemoryWriteFileImpl(async (params) => ({
+      path: params.relPath,
+      bytes: 12,
+    }));
+    const tool = createMemoryWriteToolOrThrow();
+    const result = await tool.execute("write", { path: "memory/tasks.md", content: "hello world!" });
+    expect(result.details).toMatchObject({
+      ok: true,
+      path: "memory/tasks.md",
+      bytes: 12,
+      changed: true,
+    });
+  });
+
+  it("memory_update supports ranged updates", async () => {
+    setMemoryUpdateFileImpl(async (params) => ({
+      path: params.relPath,
+      bytes: 22,
+    }));
+    const tool = createMemoryUpdateToolOrThrow();
+    const result = await tool.execute("update", {
+      path: "memory/tasks.md",
+      content: "done",
+      from: 2,
+      lines: 1,
+    });
+    expect(result.details).toMatchObject({
+      ok: true,
+      path: "memory/tasks.md",
+      bytes: 22,
+      changed: true,
+    });
+  });
+
+  it("memory_delete returns deleted state", async () => {
+    setMemoryDeleteFileImpl(async (params) => ({
+      path: params.relPath,
+      deleted: false,
+    }));
+    const tool = createMemoryDeleteToolOrThrow();
+    const result = await tool.execute("delete", { path: "memory/tasks.md" });
+    expect(result.details).toMatchObject({
+      ok: true,
+      path: "memory/tasks.md",
+      deleted: false,
+    });
   });
 });

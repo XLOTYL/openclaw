@@ -162,3 +162,19 @@ The parity harness is not the only evidence source. Keep this split explicit in 
 | `/elevated full` hints were sometimes misleading            | PR B ties guidance to actual runtime capability and blocked reasons                     |
 | Long tasks could disappear into replay/compaction ambiguity | PR C emits explicit paused, blocked, abandoned, and replay-invalid state                |
 | Parity claims were anecdotal                                | PR D produces a report plus JSON verdict with the same scenario coverage on both models |
+
+## OpenClaw gateway / agent-tool parity (does not own)
+
+These merge units do **not** own OpenClaw’s gateway-vs-agent-tool surface parity
+(for example `operator` / `nodes` bridging `sessions.*`, `chat.abort`,
+`agents.files.*`, `node.pair.request`). Track that work in OpenClaw runtime PRs and
+docs (`docs/gateway/protocol.md`, `docs/tools/index.md`). The checked-in matrix
+`docs/reference/gateway-agent-tool-parity.json` is validated by
+`src/agents/tools/gateway-agent-tool-parity.test.ts`; update it when adding gateway
+routes from those tools. Discovery list vs core handlers is gated by
+`src/gateway/gateway-discovery-parity.test.ts`.
+
+**Intentional non-parity (until a dedicated integration phase):** there is no
+`skills.remove` RPC. Treat “disable skill” (`skills.update` with `enabled: false`)
+as the supported path; do not file harness gaps for missing uninstall until the
+core product defines artifact cleanup and any external orchestration contract.

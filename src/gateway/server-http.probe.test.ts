@@ -10,6 +10,27 @@ import {
 import type { ReadinessChecker } from "./server/readiness.js";
 import { withTempConfig } from "./test-temp-config.js";
 
+describe("gateway prometheus metrics route", () => {
+  it("returns prometheus text from GET /metrics", async () => {
+    await withGatewayServer({
+      prefix: "gateway-metrics-get",
+      resolvedAuth: AUTH_NONE,
+      run: async (server) => {
+        const req = createRequest({ path: "/metrics" });
+        const { res, getBody } = createResponse();
+        await dispatchRequest(server, req, res);
+
+        expect(res.statusCode).toBe(200);
+        expect(res.setHeader).toHaveBeenCalledWith(
+          "Content-Type",
+          "text/plain; version=0.0.4; charset=utf-8",
+        );
+        expect(getBody()).toContain("# HELP openclaw_security_block_total");
+      },
+    });
+  });
+});
+
 describe("gateway OpenAI-compatible disabled HTTP routes", () => {
   it("returns 404 when compat endpoints are disabled", async () => {
     await withGatewayServer({

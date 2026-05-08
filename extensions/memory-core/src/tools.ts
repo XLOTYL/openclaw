@@ -28,7 +28,10 @@ import {
   getMemoryManagerContext,
   getMemoryManagerContextWithPurpose,
   loadMemoryToolRuntime,
+  MemoryDeleteSchema,
   MemoryGetSchema,
+  MemoryUpdateSchema,
+  MemoryWriteSchema,
   MemorySearchSchema,
   searchMemoryCorpusSupplements,
 } from "./tools.shared.js";
@@ -176,6 +179,20 @@ async function executeMemoryReadResult<T>(params: {
       agentSessionKey: params.agentSessionKey,
     });
   }
+}
+
+async function bestEffortMemorySync(params: { cfg: OpenClawConfig; agentId: string; reason: string }) {
+  const memory = await getMemoryManagerContextWithPurpose({
+    cfg: params.cfg,
+    agentId: params.agentId,
+    purpose: "status",
+  });
+  if ("error" in memory) {
+    return;
+  }
+  await memory.manager.sync?.({
+    reason: params.reason,
+  });
 }
 
 export function createMemorySearchTool(options: {
@@ -395,6 +412,108 @@ export function createMemoryGetTool(options: {
           from: from ?? undefined,
           lines: lines ?? undefined,
           agentSessionKey: options.agentSessionKey,
+        });
+      },
+  });
+}
+
+export function createMemoryWriteTool(options: {
+  config?: OpenClawConfig;
+  agentSessionKey?: string;
+}): AnyAgentTool | null {
+  return createMemoryTool({
+    options,
+    label: "Memory Write",
+    name: "memory_write",
+    description:
+      "Create or overwrite MEMORY.md or memory/*.md content in the current workspace memory namespace.",
+    parameters: MemoryWriteSchema,
+    execute:
+      ({ cfg, agentId }) =>
+      async (_toolCallId, params) => {
+        const relPath = readStringParam(params, "path", { required: true });
+        const content = readStringParam(params, "content", { required: true });
+        const { writeAgentMemoryFile } = await loadMemoryToolRuntime();
+        const result = await writeAgentMemoryFile({
+          cfg,
+          agentId,
+          relPath,
+          content,
+        });
+        await bestEffortMemorySync({ cfg, agentId, reason: "memory_write" });
+        return jsonResult({
+          ok: true,
+          path: result.path,
+          bytes: result.bytes,
+          changed: true,
+        });
+      },
+  });
+}
+
+export function createMemoryUpdateTool(options: {
+  config?: OpenClawConfig;
+  agentSessionKey?: string;
+}): AnyAgentTool | null {
+  return createMemoryTool({
+    options,
+    label: "Memory Update",
+    name: "memory_update",
+    description:
+      "Update MEMORY.md or memory/*.md content, optionally replacing a line range with new text.",
+    parameters: MemoryUpdateSchema,
+    execute:
+      ({ cfg, agentId }) =>
+      async (_toolCallId, params) => {
+        const relPath = readStringParam(params, "path", { required: true });
+        const content = readStringParam(params, "content", { required: true });
+        const from = readNumberParam(params, "from", { integer: true });
+        const lines = readNumberParam(params, "lines", { integer: true });
+        const { updateAgentMemoryFile } = await loadMemoryToolRuntime();
+        const result = await updateAgentMemoryFile({
+          cfg,
+          agentId,
+          relPath,
+          content,
+          from: from ?? undefined,
+          lines: lines ?? undefined,
+        });
+        await bestEffortMemorySync({ cfg, agentId, reason: "memory_update" });
+        return jsonResult({
+          ok: true,
+          path: result.path,
+          bytes: result.bytes,
+          changed: true,
+        });
+      },
+  });
+}
+
+export function createMemoryDeleteTool(options: {
+  config?: OpenClawConfig;
+  agentSessionKey?: string;
+}): AnyAgentTool | null {
+  return createMemoryTool({
+    options,
+    label: "Memory Delete",
+    name: "memory_delete",
+    description: "Delete a MEMORY.md or memory/*.md file in the current workspace memory namespace.",
+    parameters: MemoryDeleteSchema,
+    execute:
+      ({ cfg, agentId }) =>
+      async (_toolCallId, params) => {
+        const relPath = readStringParam(params, "path", { required: true });
+        const { deleteAgentMemoryFile } = await loadMemoryToolRuntime();
+        const result = await deleteAgentMemoryFile({
+          cfg,
+          agentId,
+          relPath,
+        });
+        await bestEffortMemorySync({ cfg, agentId, reason: "memory_delete" });
+        return jsonResult({
+          ok: true,
+          path: result.path,
+          deleted: result.deleted,
         });
       },
   });

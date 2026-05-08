@@ -74,7 +74,7 @@ describe("config shared auth disconnects", () => {
     };
     readConfigFileSnapshotForWriteMock.mockResolvedValue(createConfigWriteSnapshot(prevConfig));
 
-    const { options, disconnectClientsUsingSharedGatewayAuth } = createConfigHandlerHarness({
+    const { options, disconnectClientsUsingSharedGatewayAuth, broadcast } = createConfigHandlerHarness({
       method: "config.set",
       params: {
         raw: JSON.stringify(nextConfig, null, 2),
@@ -88,6 +88,11 @@ describe("config shared auth disconnects", () => {
     expect(writeConfigFileMock).toHaveBeenCalledWith(nextConfig, {});
     expect(disconnectClientsUsingSharedGatewayAuth).not.toHaveBeenCalled();
     expect(scheduleGatewaySigusr1RestartMock).not.toHaveBeenCalled();
+    expect(broadcast).toHaveBeenCalledWith(
+      "config.changed",
+      expect.objectContaining({ reason: "set" }),
+      expect.objectContaining({ dropIfSlow: true }),
+    );
   });
 
   it("lets the config reloader own hybrid-mode auth restarts", async () => {
@@ -101,7 +106,7 @@ describe("config shared auth disconnects", () => {
     };
     readConfigFileSnapshotForWriteMock.mockResolvedValue(createConfigWriteSnapshot(prevConfig));
 
-    const { options, disconnectClientsUsingSharedGatewayAuth } = createConfigHandlerHarness({
+    const { options, disconnectClientsUsingSharedGatewayAuth, broadcast } = createConfigHandlerHarness({
       method: "config.patch",
       params: {
         baseHash: "base-hash",
@@ -115,6 +120,11 @@ describe("config shared auth disconnects", () => {
 
     expect(scheduleGatewaySigusr1RestartMock).not.toHaveBeenCalled();
     expect(disconnectClientsUsingSharedGatewayAuth).toHaveBeenCalledTimes(1);
+    expect(broadcast).toHaveBeenCalledWith(
+      "config.changed",
+      expect.objectContaining({ reason: "patch" }),
+      expect.objectContaining({ dropIfSlow: true }),
+    );
   });
 
   it("does not disconnect shared-auth clients when config.patch changes only inactive password auth", async () => {

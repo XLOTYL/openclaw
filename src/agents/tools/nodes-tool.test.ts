@@ -295,6 +295,87 @@ describe("createNodesTool screen_record duration guardrails", () => {
     expectNodePairApproveScopes(["operator.pairing"]);
   });
 
+  it("routes unpair action to device.pair.remove", async () => {
+    gatewayMocks.callGatewayTool.mockResolvedValue({ ok: true });
+    const tool = createNodesTool();
+
+    await tool.execute("call-unpair", {
+      action: "unpair",
+      node: "macbook",
+    });
+
+    expect(gatewayMocks.callGatewayTool).toHaveBeenCalledWith("device.pair.remove", {}, {
+      deviceId: "node-1",
+    });
+  });
+
+  it("routes pair_request with nodeId to node.pair.request", async () => {
+    gatewayMocks.callGatewayTool.mockResolvedValue({ ok: true });
+    const tool = createNodesTool();
+
+    await tool.execute("call-pair-req", {
+      action: "pair_request",
+      nodeId: "node-99",
+      displayName: "Phone",
+    });
+
+    expect(gatewayMocks.callGatewayTool).toHaveBeenCalledWith(
+      "node.pair.request",
+      {},
+      {
+        nodeId: "node-99",
+        displayName: "Phone",
+        platform: undefined,
+        version: undefined,
+        coreVersion: undefined,
+        uiVersion: undefined,
+        deviceFamily: undefined,
+        modelIdentifier: undefined,
+        caps: undefined,
+        commands: undefined,
+        remoteIp: undefined,
+        silent: undefined,
+      },
+      { scopes: ["operator.pairing"] },
+    );
+  });
+
+  it("routes pair_request with node label via resolveNodeId", async () => {
+    gatewayMocks.callGatewayTool.mockResolvedValue({ ok: true });
+    const tool = createNodesTool();
+
+    await tool.execute("call-pair-req2", {
+      action: "pair_request",
+      node: "macbook",
+    });
+
+    expect(nodeUtilsMocks.resolveNodeId).toHaveBeenCalledWith({}, "macbook");
+    expect(gatewayMocks.callGatewayTool).toHaveBeenCalledWith(
+      "node.pair.request",
+      {},
+      expect.objectContaining({ nodeId: "node-1" }),
+      { scopes: ["operator.pairing"] },
+    );
+  });
+
+  it("routes rename to node.rename with resolved id", async () => {
+    gatewayMocks.callGatewayTool.mockResolvedValue({ ok: true });
+    const tool = createNodesTool();
+
+    await tool.execute("call-rename", {
+      action: "rename",
+      node: "macbook",
+      displayName: "Work Mac",
+    });
+
+    expect(gatewayMocks.callGatewayTool).toHaveBeenCalledWith(
+      "node.rename",
+      {},
+      { nodeId: "node-1", displayName: "Work Mac" },
+      { scopes: ["operator.pairing"] },
+    );
+  });
+
   it("falls back to command inspection when the gateway does not advertise required scopes", async () => {
     mockNodePairApproveFlow({
       commands: ["canvas.snapshot"],

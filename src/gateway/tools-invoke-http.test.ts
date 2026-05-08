@@ -112,6 +112,18 @@ vi.mock("../agents/openclaw-tools.js", () => {
       },
     },
     {
+      name: "operator",
+      ownerOnly: true,
+      parameters: { type: "object", properties: {} },
+      execute: async () => ({ ok: true, result: "operator" }),
+    },
+    {
+      name: "sessions_lifecycle",
+      ownerOnly: true,
+      parameters: { type: "object", properties: {} },
+      execute: async () => ({ ok: true, result: "sessions_lifecycle" }),
+    },
+    {
       name: "exec",
       parameters: { type: "object", properties: {} },
       execute: async () => ({ ok: true, result: "exec" }),
@@ -852,7 +864,7 @@ describe("POST /tools/invoke", () => {
   });
 
   it("extends the HTTP deny list to high-risk execution and file tools", async () => {
-    setMainAllowedTools({ allow: ["exec", "apply_patch", "nodes"] });
+    setMainAllowedTools({ allow: ["exec", "apply_patch", "nodes", "operator", "sessions_lifecycle"] });
 
     const execRes = await invokeToolAuthed({
       tool: "exec",
@@ -866,6 +878,14 @@ describe("POST /tools/invoke", () => {
       tool: "nodes",
       sessionKey: "main",
     });
+    const operatorRes = await invokeToolAuthed({
+      tool: "operator",
+      sessionKey: "main",
+    });
+    const lifecycleRes = await invokeToolAuthed({
+      tool: "sessions_lifecycle",
+      sessionKey: "main",
+    });
     const nodesAdminRes = await invokeTool({
       port: sharedPort,
       headers: gatewayAdminHeaders(),
@@ -876,6 +896,8 @@ describe("POST /tools/invoke", () => {
     expect(execRes.status).toBe(404);
     expect(patchRes.status).toBe(404);
     expect(nodesRes.status).toBe(404);
+    expect(operatorRes.status).toBe(404);
+    expect(lifecycleRes.status).toBe(404);
     expect(nodesAdminRes.status).toBe(404);
   });
 });

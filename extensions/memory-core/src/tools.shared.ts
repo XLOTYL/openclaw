@@ -40,6 +40,22 @@ export const MemoryGetSchema = Type.Object({
   ),
 });
 
+export const MemoryWriteSchema = Type.Object({
+  path: Type.String(),
+  content: Type.String(),
+});
+
+export const MemoryUpdateSchema = Type.Object({
+  path: Type.String(),
+  content: Type.String(),
+  from: Type.Optional(Type.Number()),
+  lines: Type.Optional(Type.Number()),
+});
+
+export const MemoryDeleteSchema = Type.Object({
+  path: Type.String(),
+});
+
 export function resolveMemoryToolContext(options: {
   config?: OpenClawConfig;
   agentSessionKey?: string;

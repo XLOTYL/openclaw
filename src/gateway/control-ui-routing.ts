@@ -6,7 +6,13 @@ export type ControlUiRequestClassification =
   | { kind: "redirect"; location: string }
   | { kind: "serve" };
 
-const ROOT_MOUNTED_GATEWAY_PROBE_PATHS = new Set(["/health", "/healthz", "/ready", "/readyz"]);
+const ROOT_MOUNTED_GATEWAY_PROBE_PATHS = new Set([
+  "/health",
+  "/healthz",
+  "/ready",
+  "/readyz",
+  "/metrics",
+]);
 
 export function classifyControlUiRequest(params: {
   basePath: string;

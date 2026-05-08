@@ -32,7 +32,21 @@ import {
   validateSkillsStatusParams,
   validateSkillsUpdateParams,
 } from "../protocol/index.js";
-import type { GatewayRequestHandlers } from "./types.js";
+import type { GatewayRequestContext, GatewayRequestHandlers } from "./types.js";
+
+function emitSkillsChanged(
+  context: Pick<GatewayRequestContext, "broadcast">,
+  payload: { reason: string; skillKey?: string },
+) {
+  context.broadcast(
+    "skills.changed",
+    {
+      ...payload,
+      ts: Date.now(),
+    },
+    { dropIfSlow: true },
+  );
+}
 
 function collectSkillBins(entries: SkillEntry[]): string[] {
   const bins = new Set<string>();
@@ -172,7 +186,7 @@ export const skillsHandlers: GatewayRequestHandlers = {
       respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, formatErrorMessage(err)));
     }
   },
-  "skills.install": async ({ params, respond }) => {
+  "skills.install": async ({ params, respond, context }) => {
     if (!validateSkillsInstallParams(params)) {
       respond(
         false,
@@ -215,6 +229,9 @@ export const skillsHandlers: GatewayRequestHandlers = {
           : result,
         result.ok ? undefined : errorShape(ErrorCodes.UNAVAILABLE, result.error),
       );
+      if (result.ok) {
+        emitSkillsChanged(context, { reason: "install", skillKey: result.slug });
+      }
       return;
     }
     const p = params as {
@@ -236,8 +253,11 @@ export const skillsHandlers: GatewayRequestHandlers = {
       result,
       result.ok ? undefined : errorShape(ErrorCodes.UNAVAILABLE, result.message),
     );
+    if (result.ok) {
+      emitSkillsChanged(context, { reason: "install", skillKey: p.name });
+    }
   },
-  "skills.update": async ({ params, respond }) => {
+  "skills.update": async ({ params, respond, context }) => {
     if (!validateSkillsUpdateParams(params)) {
       respond(
         false,
@@ -295,6 +315,9 @@ export const skillsHandlers: GatewayRequestHandlers = {
           ? undefined
           : errorShape(ErrorCodes.UNAVAILABLE, errors.map((result) => result.error).join("; ")),
       );
+      if (errors.length === 0) {
+        emitSkillsChanged(context, { reason: "update", skillKey: p.slug ?? "*" });
+      }
       return;
     }
     const p = params as {
@@ -342,5 +365,6 @@ export const skillsHandlers: GatewayRequestHandlers = {
     };
     await writeConfigFile(nextConfig);
     respond(true, { ok: true, skillKey: p.skillKey, config: current }, undefined);
+    emitSkillsChanged(context, { reason: "update", skillKey: p.skillKey });
   },
 };

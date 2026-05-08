@@ -14,6 +14,7 @@ type ConfigHandlerHarness = {
   respond: UnknownMock;
   logGateway: GatewayLogMocks;
   disconnectClientsUsingSharedGatewayAuth: UnknownMock;
+  broadcast: UnknownMock;
 };
 
 function createGatewayLog(): GatewayLogMocks {
@@ -54,6 +55,7 @@ export function createConfigHandlerHarness(args?: {
 }): ConfigHandlerHarness {
   const logGateway = createGatewayLog();
   const disconnectClientsUsingSharedGatewayAuth = vi.fn();
+  const broadcast = vi.fn();
   const respond = vi.fn();
   const options = {
     req: { type: "req", id: "1", method: args?.method ?? "config.get" },
@@ -63,6 +65,7 @@ export function createConfigHandlerHarness(args?: {
     respond,
     context: {
       logGateway,
+      broadcast,
       disconnectClientsUsingSharedGatewayAuth,
       ...args?.contextOverrides,
     },
@@ -73,6 +76,7 @@ export function createConfigHandlerHarness(args?: {
     respond,
     logGateway,
     disconnectClientsUsingSharedGatewayAuth,
+    broadcast,
   };
 }
 

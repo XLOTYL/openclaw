@@ -114,6 +114,8 @@ Gateway HTTP also applies a hard deny list by default (even if session policy al
 - `sessions_send` — cross-session message injection
 - `cron` — persistent automation control plane
 - `gateway` — gateway control plane; prevents reconfiguration via HTTP
+- `operator` — owner-only operator control bridge (skills/admin approvals/logs/usage)
+- `sessions_lifecycle` — owner-only session delete/compaction lifecycle controls
 - `nodes` — node command relay can reach system.run on paired hosts
 - `whatsapp_login` — interactive setup requiring terminal QR scan; hangs on HTTP
 

@@ -318,9 +318,10 @@ implemented in `src/gateway/server-methods/*.ts`.
 #### Agent and workspace helpers
 
 - `agents.list` returns configured agent entries.
+- **Agent-facing tools vs this RPC:** the `agents_list` tool answers “which agent ids can I target for `sessions_spawn`?” from subagent allowlists. The owner-only `operator` tool mirrors gateway parity for `agents.list` / `agents.create` / `agents.update` / `agents.delete` (and `agents.files.*`) for the same RPCs CLI/UI use. See [Tools](/tools/index).
 - `agents.create`, `agents.update`, and `agents.delete` manage agent records and
   workspace wiring.
-- `agents.files.list`, `agents.files.get`, and `agents.files.set` manage the
+- `agents.files.list`, `agents.files.get`, `agents.files.set`, and `agents.files.delete` manage the
   bootstrap workspace files exposed for an agent.
 - `agent.identity.get` returns the effective assistant identity for an agent or
   session.
@@ -472,6 +473,12 @@ implemented in `src/gateway/server-methods/*.ts`.
     the default agent workspace.
   - Config mode patches `skills.entries.<skillKey>` values such as `enabled`,
     `apiKey`, and `env`.
+
+There is **no** `skills.remove` / uninstall RPC today. Disable a skill via
+`skills.update` (config mode) by setting `enabled: false` on
+`skills.entries.<skillKey>`. A dedicated remove/uninstall flow requires coordinated
+artifact cleanup and any external backend orchestration; treat it as a separate
+integration phase, not an implied parity gap in the core gateway.
 
 ## Exec approvals
 

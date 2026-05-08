@@ -54,6 +54,7 @@ describe("skills gateway handlers (clawhub)", () => {
     let ok: boolean | null = null;
     let response: unknown;
     let error: unknown;
+    const broadcast = vi.fn();
     await skillsHandlers["skills.install"]({
       params: {
         source: "clawhub",
@@ -63,7 +64,7 @@ describe("skills gateway handlers (clawhub)", () => {
       req: {} as never,
       client: null as never,
       isWebchatConnect: () => false,
-      context: {} as never,
+      context: { broadcast } as never,
       respond: (success, result, err) => {
         ok = success;
         response = result;
@@ -85,6 +86,11 @@ describe("skills gateway handlers (clawhub)", () => {
       slug: "calendar",
       version: "1.2.3",
     });
+    expect(broadcast).toHaveBeenCalledWith(
+      "skills.changed",
+      expect.objectContaining({ reason: "install", skillKey: "calendar" }),
+      expect.objectContaining({ dropIfSlow: true }),
+    );
   });
 
   it("forwards dangerous override for local skill installs", async () => {
@@ -99,6 +105,7 @@ describe("skills gateway handlers (clawhub)", () => {
     let ok: boolean | null = null;
     let response: unknown;
     let error: unknown;
+    const broadcast = vi.fn();
     await skillsHandlers["skills.install"]({
       params: {
         name: "calendar",
@@ -109,7 +116,7 @@ describe("skills gateway handlers (clawhub)", () => {
       req: {} as never,
       client: null as never,
       isWebchatConnect: () => false,
-      context: {} as never,
+      context: { broadcast } as never,
       respond: (success, result, err) => {
         ok = success;
         response = result;
@@ -131,6 +138,11 @@ describe("skills gateway handlers (clawhub)", () => {
       ok: true,
       message: "Installed",
     });
+    expect(broadcast).toHaveBeenCalledWith(
+      "skills.changed",
+      expect.objectContaining({ reason: "install", skillKey: "calendar" }),
+      expect.objectContaining({ dropIfSlow: true }),
+    );
   });
 
   it("updates ClawHub skills through skills.update", async () => {
@@ -148,6 +160,7 @@ describe("skills gateway handlers (clawhub)", () => {
     let ok: boolean | null = null;
     let response: unknown;
     let error: unknown;
+    const broadcast = vi.fn();
     await skillsHandlers["skills.update"]({
       params: {
         source: "clawhub",
@@ -156,7 +169,7 @@ describe("skills gateway handlers (clawhub)", () => {
       req: {} as never,
       client: null as never,
       isWebchatConnect: () => false,
-      context: {} as never,
+      context: { broadcast } as never,
       respond: (success, result, err) => {
         ok = success;
         response = result;
@@ -184,11 +197,17 @@ describe("skills gateway handlers (clawhub)", () => {
         ],
       },
     });
+    expect(broadcast).toHaveBeenCalledWith(
+      "skills.changed",
+      expect.objectContaining({ reason: "update", skillKey: "calendar" }),
+      expect.objectContaining({ dropIfSlow: true }),
+    );
   });
 
   it("rejects ClawHub skills.update requests without slug or all", async () => {
     let ok: boolean | null = null;
     let error: { code?: string; message?: string } | undefined;
+    const broadcast = vi.fn();
     await skillsHandlers["skills.update"]({
       params: {
         source: "clawhub",
@@ -196,7 +215,7 @@ describe("skills gateway handlers (clawhub)", () => {
       req: {} as never,
       client: null as never,
       isWebchatConnect: () => false,
-      context: {} as never,
+      context: { broadcast } as never,
       respond: (success, _result, err) => {
         ok = success;
         error = err as { code?: string; message?: string } | undefined;

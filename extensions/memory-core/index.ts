@@ -12,7 +12,13 @@ import { registerBuiltInMemoryEmbeddingProviders } from "./src/memory/provider-a
 import { buildPromptSection } from "./src/prompt-section.js";
 import { listMemoryCorePublicArtifacts } from "./src/public-artifacts.js";
 import { memoryRuntime } from "./src/runtime-provider.js";
-import { createMemoryGetTool, createMemorySearchTool } from "./src/tools.js";
+import {
+  createMemoryDeleteTool,
+  createMemoryGetTool,
+  createMemorySearchTool,
+  createMemoryUpdateTool,
+  createMemoryWriteTool,
+} from "./src/tools.js";
 export {
   buildMemoryFlushPlan,
   DEFAULT_MEMORY_FLUSH_FORCE_TRANSCRIPT_BYTES,
@@ -55,6 +61,33 @@ export default definePluginEntry({
           agentSessionKey: ctx.sessionKey,
         }),
       { names: ["memory_get"] },
+    );
+
+    api.registerTool(
+      (ctx) =>
+        createMemoryWriteTool({
+          config: ctx.config,
+          agentSessionKey: ctx.sessionKey,
+        }),
+      { names: ["memory_write"] },
+    );
+
+    api.registerTool(
+      (ctx) =>
+        createMemoryUpdateTool({
+          config: ctx.config,
+          agentSessionKey: ctx.sessionKey,
+        }),
+      { names: ["memory_update"] },
+    );
+
+    api.registerTool(
+      (ctx) =>
+        createMemoryDeleteTool({
+          config: ctx.config,
+          agentSessionKey: ctx.sessionKey,
+        }),
+      { names: ["memory_delete"] },
     );
 
     api.registerCli(

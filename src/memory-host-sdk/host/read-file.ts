@@ -94,3 +94,142 @@ export async function readAgentMemoryFile(params: {
     lines: params.lines,
   });
 }
+
+function resolveWritableMemoryPath(params: { workspaceDir: string; relPath: string }) {
+  const rawPath = params.relPath.trim();
+  if (!rawPath) {
+    throw new Error("path required");
+  }
+  const absPath = path.isAbsolute(rawPath)
+    ? path.resolve(rawPath)
+    : path.resolve(params.workspaceDir, rawPath);
+  const relPath = path.relative(params.workspaceDir, absPath).replace(/\\/g, "/");
+  const inWorkspace = relPath.length > 0 && !relPath.startsWith("..") && !path.isAbsolute(relPath);
+  if (!inWorkspace || !isMemoryPath(relPath) || !absPath.endsWith(".md")) {
+    throw new Error("path required");
+  }
+  return { absPath, relPath };
+}
+
+export async function writeMemoryFile(params: {
+  workspaceDir: string;
+  relPath: string;
+  content: string;
+}): Promise<{ path: string; bytes: number }> {
+  const { absPath, relPath } = resolveWritableMemoryPath({
+    workspaceDir: params.workspaceDir,
+    relPath: params.relPath,
+  });
+  await fs.mkdir(path.dirname(absPath), { recursive: true });
+  await fs.writeFile(absPath, params.content, "utf-8");
+  return { path: relPath, bytes: Buffer.byteLength(params.content, "utf-8") };
+}
+
+export async function updateMemoryFile(params: {
+  workspaceDir: string;
+  relPath: string;
+  content: string;
+  from?: number;
+  lines?: number;
+}): Promise<{ path: string; bytes: number }> {
+  if (params.from == null && params.lines == null) {
+    return await writeMemoryFile({
+      workspaceDir: params.workspaceDir,
+      relPath: params.relPath,
+      content: params.content,
+    });
+  }
+  const { absPath, relPath } = resolveWritableMemoryPath({
+    workspaceDir: params.workspaceDir,
+    relPath: params.relPath,
+  });
+  let existing = "";
+  try {
+    existing = await fs.readFile(absPath, "utf-8");
+  } catch (err) {
+    if (!isFileMissingError(err)) {
+      throw err;
+    }
+  }
+  const start = Math.max(1, params.from ?? 1);
+  const count = Math.max(1, params.lines ?? 1);
+  const lines = existing.split("\n");
+  const replacement = params.content.split("\n");
+  lines.splice(start - 1, count, ...replacement);
+  const nextContent = lines.join("\n");
+  await fs.mkdir(path.dirname(absPath), { recursive: true });
+  await fs.writeFile(absPath, nextContent, "utf-8");
+  return { path: relPath, bytes: Buffer.byteLength(nextContent, "utf-8") };
+}
+
+export async function deleteMemoryFile(params: {
+  workspaceDir: string;
+  relPath: string;
+}): Promise<{ path: string; deleted: boolean }> {
+  const { absPath, relPath } = resolveWritableMemoryPath({
+    workspaceDir: params.workspaceDir,
+    relPath: params.relPath,
+  });
+  try {
+    await fs.unlink(absPath);
+    return { path: relPath, deleted: true };
+  } catch (err) {
+    if (isFileMissingError(err)) {
+      return { path: relPath, deleted: false };
+    }
+    throw err;
+  }
+}
+
+export async function writeAgentMemoryFile(params: {
+  cfg: OpenClawConfig;
+  agentId: string;
+  relPath: string;
+  content: string;
+}): Promise<{ path: string; bytes: number }> {
+  const settings = resolveMemorySearchConfig(params.cfg, params.agentId);
+  if (!settings) {
+    throw new Error("memory search disabled");
+  }
+  return await writeMemoryFile({
+    workspaceDir: resolveAgentWorkspaceDir(params.cfg, params.agentId),
+    relPath: params.relPath,
+    content: params.content,
+  });
+}
+
+export async function updateAgentMemoryFile(params: {
+  cfg: OpenClawConfig;
+  agentId: string;
+  relPath: string;
+  content: string;
+  from?: number;
+  lines?: number;
+}): Promise<{ path: string; bytes: number }> {
+  const settings = resolveMemorySearchConfig(params.cfg, params.agentId);
+  if (!settings) {
+    throw new Error("memory search disabled");
+  }
+  return await updateMemoryFile({
+    workspaceDir: resolveAgentWorkspaceDir(params.cfg, params.agentId),
+    relPath: params.relPath,
+    content: params.content,
+    from: params.from,
+    lines: params.lines,
+  });
+}
+
+export async function deleteAgentMemoryFile(params: {
+  cfg: OpenClawConfig;
+  agentId: string;
+  relPath: string;
+}): Promise<{ path: string; deleted: boolean }> {
+  const settings = resolveMemorySearchConfig(params.cfg, params.agentId);
+  if (!settings) {
+    throw new Error("memory search disabled");
+  }
+  return await deleteMemoryFile({
+    workspaceDir: resolveAgentWorkspaceDir(params.cfg, params.agentId),
+    relPath: params.relPath,
+  });
+}

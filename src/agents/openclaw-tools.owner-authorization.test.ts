@@ -6,10 +6,18 @@ import {
 
 describe("createOpenClawTools owner authorization", () => {
   it("marks owner-only core tool names", () => {
-    expect(OPENCLAW_OWNER_ONLY_CORE_TOOL_NAMES).toEqual(["cron", "gateway", "nodes"]);
+    expect(OPENCLAW_OWNER_ONLY_CORE_TOOL_NAMES).toEqual([
+      "cron",
+      "gateway",
+      "nodes",
+      "operator",
+      "sessions_lifecycle",
+    ]);
     expect(isOpenClawOwnerOnlyCoreToolName("cron")).toBe(true);
     expect(isOpenClawOwnerOnlyCoreToolName("gateway")).toBe(true);
     expect(isOpenClawOwnerOnlyCoreToolName("nodes")).toBe(true);
+    expect(isOpenClawOwnerOnlyCoreToolName("operator")).toBe(true);
+    expect(isOpenClawOwnerOnlyCoreToolName("sessions_lifecycle")).toBe(true);
   });
 
   it("keeps canvas non-owner-only", () => {
